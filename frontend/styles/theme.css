@@ -1,0 +1,28 @@
+:root {
+  --elevation-low: 0 10px 25px -20px rgba(15, 23, 42, 0.25);
+  --elevation-medium: 0 18px 45px -24px rgba(15, 23, 42, 0.3);
+  --grid-line: hsla(217, 23%, 35%, 0.12);
+}
+
+.dark {
+  --elevation-low: 0 10px 25px -20px rgba(15, 23, 42, 0.8);
+  --elevation-medium: 0 18px 45px -24px rgba(15, 23, 42, 0.85);
+  --grid-line: hsla(0, 0%, 100%, 0.06);
+}
+
+.chart-gradient-primary {
+  background: linear-gradient(180deg, hsla(199, 89%, 58%, 0.35) 0%, transparent 100%);
+}
+
+.chart-gradient-accent {
+  background: linear-gradient(180deg, hsla(42, 87%, 55%, 0.4) 0%, transparent 100%);
+}
+
+.glass-panel {
+  background: linear-gradient(135deg, hsla(0, 0%, 100%, 0.7), hsla(0, 0%, 100%, 0.55));
+  backdrop-filter: blur(14px);
+}
+
+.dark .glass-panel {
+  background: linear-gradient(135deg, hsla(217, 27%, 16%, 0.65), hsla(217, 20%, 12%, 0.65));
+}
