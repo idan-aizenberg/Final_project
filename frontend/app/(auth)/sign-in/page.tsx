@@ -166,11 +166,11 @@ export default function SignInPage() {
         <CardFooter className="flex-col gap-4">
           <div className="text-center text-xs text-muted-foreground">
             By signing in, you agree to our{" "}
-            <Link href="/terms" className="underline hover:text-foreground">
+            <Link href={"/terms" as any} className="underline hover:text-foreground">
               Terms of Service
             </Link>{" "}
             and{" "}
-            <Link href="/privacy" className="underline hover:text-foreground">
+            <Link href={"/privacy" as any} className="underline hover:text-foreground">
               Privacy Policy
             </Link>
           </div>
