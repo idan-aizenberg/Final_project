@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useState, useEffect } from "react";
 import type { UseFormReturn } from "react-hook-form";
 
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,13 @@ import { Switch } from "@/components/ui/switch";
 import { GeoMap } from "@/components/shared/GeoMap";
 import type { SearchFormValues } from "@/types/search";
 import { cn } from "@/lib/utils";
+
+interface LocationSuggestion {
+  name: string;
+  lat: number;
+  lon: number;
+  display_name: string;
+}
 
 interface SearchFiltersProps {
   form: UseFormReturn<SearchFormValues>;
@@ -33,10 +40,50 @@ export function SearchFilters({ form, presets, onSubmit, queryCost, queryLimit, 
   const output = watch("output");
   const units = watch("units");
   const autoAlert = watch("autoAlert");
+  const location = watch("location");
   const remaining = queryLimit === "unlimited" ? Infinity : queryLimit - queryCost;
   const canDownload = output === "download" ? queryLimit === "unlimited" || remaining > 0 : true;
   const forecastAvailability = availability?.forecast ?? {};
   const outputAvailability = availability?.outputs ?? {};
+
+  const [suggestions, setSuggestions] = useState<LocationSuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+
+  // Geocode location when user types
+  useEffect(() => {
+    if (!location || location.length < 2) {
+      setSuggestions([]);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setIsLoadingSuggestions(true);
+      try {
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(location)}&limit=5`
+        );
+        const data = await response.json();
+        setSuggestions(data as LocationSuggestion[]);
+        setShowSuggestions(true);
+      } catch (error) {
+        console.error("Failed to fetch location suggestions:", error);
+        setSuggestions([]);
+      } finally {
+        setIsLoadingSuggestions(false);
+      }
+    }, 500); // Debounce for 500ms
+
+    return () => clearTimeout(timer);
+  }, [location]);
+
+  const handleLocationSelect = (suggestion: LocationSuggestion) => {
+    setValue("location", suggestion.display_name);
+    setValue("latitude", suggestion.lat);
+    setValue("longitude", suggestion.lon);
+    setSuggestions([]);
+    setShowSuggestions(false);
+  };
   const resolutionLabels: Record<SearchFormValues["resolution"], string> = {
     daily: "Daily",
     weekly: "Weekly averages",
@@ -82,7 +129,34 @@ export function SearchFilters({ form, presets, onSubmit, queryCost, queryLimit, 
         <div className="grid gap-4">
           <div className="space-y-2">
             <Label htmlFor="location">Location</Label>
-            <Input id="location" placeholder="e.g., Tel Aviv, Israel" {...register("location", { required: true })} />
+            <div className="relative">
+              <Input 
+                id="location" 
+                placeholder="e.g., Tel Aviv, Israel" 
+                {...register("location", { required: true })}
+                onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+              />
+              {showSuggestions && suggestions.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-background border border-border/60 rounded-lg shadow-lg z-50">
+                  {suggestions.map((suggestion, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => handleLocationSelect(suggestion)}
+                      className="w-full text-left px-4 py-2 hover:bg-muted/50 border-b last:border-b-0 text-sm"
+                    >
+                      <p className="font-medium text-foreground">{suggestion.name}</p>
+                      <p className="text-xs text-muted-foreground">{suggestion.display_name}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {isLoadingSuggestions && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-background border border-border/60 rounded-lg shadow-lg z-50 px-4 py-2 text-sm text-muted-foreground">
+                  Searching locations...
+                </div>
+              )}
+            </div>
             <p className="text-xs text-muted-foreground">
               Click on the map to refine coordinates. ({watch("latitude")?.toFixed?.(2) ?? "--"}, {watch("longitude")?.toFixed?.(2) ?? "--"})
             </p>

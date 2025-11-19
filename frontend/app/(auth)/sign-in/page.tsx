@@ -10,9 +10,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { useAuth } from "@/context/AuthContext";
 
 export default function SignInPage() {
   const router = useRouter();
+  const { signIn } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [formData, setFormData] = useState({
@@ -25,12 +27,14 @@ export default function SignInPage() {
     setIsLoading(true);
     setError("");
 
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false);
-      // For now, redirect to dashboard
+    try {
+      await signIn(formData.email, formData.password);
       router.push("/dashboard");
-    }, 1500);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to sign in");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {

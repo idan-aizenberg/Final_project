@@ -11,11 +11,14 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useAuth } from "@/context/AuthContext";
 
 export default function SignUpPage() {
   const router = useRouter();
+  const { signUp } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
@@ -28,6 +31,7 @@ export default function SignUpPage() {
     e.preventDefault();
     setIsLoading(true);
     setError("");
+    setSuccess("");
 
     // Validation
     if (formData.password !== formData.confirmPassword) {
@@ -42,12 +46,18 @@ export default function SignUpPage() {
       return;
     }
 
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      await signUp(formData.email, formData.password);
+      setSuccess("Account created! Check your email to confirm your account.");
+      setFormData({ name: "", email: "", password: "", confirmPassword: "" });
+      setTimeout(() => {
+        router.push("/sign-in");
+      }, 2000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create account");
+    } finally {
       setIsLoading(false);
-      // For now, redirect to dashboard
-      router.push("/dashboard");
-    }, 1500);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -86,6 +96,13 @@ export default function SignUpPage() {
               <div className="flex items-center gap-2 rounded-2xl border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
                 <AlertCircle className="h-4 w-4 flex-shrink-0" />
                 <span>{error}</span>
+              </div>
+            )}
+
+            {success && (
+              <div className="flex items-center gap-2 rounded-2xl border border-green-500/50 bg-green-500/10 p-3 text-sm text-green-600">
+                <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+                <span>{success}</span>
               </div>
             )}
 

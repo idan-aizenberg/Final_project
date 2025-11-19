@@ -1,60 +1,88 @@
 "use client";
 
-import "leaflet/dist/leaflet.css";
-
-import { MapContainer, Marker, TileLayer, useMapEvents } from "react-leaflet";
+import { useEffect, useState } from "react";
 import type { LatLngExpression } from "leaflet";
-import L from "leaflet";
-import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
-import markerIcon from "leaflet/dist/images/marker-icon.png";
-import markerShadow from "leaflet/dist/images/marker-shadow.png";
-import { useEffect } from "react";
 
 const DEFAULT_CENTER: LatLngExpression = [32.0853, 34.7818];
-
-if (typeof window !== "undefined") {
-  L.Icon.Default.mergeOptions({
-    iconRetinaUrl: markerIcon2x.src,
-    iconUrl: markerIcon.src,
-    shadowUrl: markerShadow.src,
-  });
-}
 
 interface GeoMapProps {
   position?: LatLngExpression;
   onPositionChange?: (position: LatLngExpression) => void;
 }
 
-function LocationMarker({ onChange }: { onChange?: (position: LatLngExpression) => void }) {
-  useMapEvents({
-    click(event) {
-      onChange?.([event.latlng.lat, event.latlng.lng]);
-    },
-  });
-  return null;
-}
-
 export function GeoMap({ position = DEFAULT_CENTER, onPositionChange }: GeoMapProps) {
+  const [mapInstance, setMapInstance] = useState<any>(null);
+  const [isClient, setIsClient] = useState(false);
+
   useEffect(() => {
-    // Ensure the map renders correctly after hydration
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new Event("resize"));
+    setIsClient(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isClient || typeof window === "undefined") return;
+
+    // Dynamically import leaflet only on client
+    const L = require("leaflet");
+    require("leaflet/dist/leaflet.css");
+
+    const markerIcon2x = require("leaflet/dist/images/marker-icon-2x.png");
+    const markerIcon = require("leaflet/dist/images/marker-icon.png");
+    const markerShadow = require("leaflet/dist/images/marker-shadow.png");
+
+    L.Icon.Default.mergeOptions({
+      iconRetinaUrl: markerIcon2x.default?.src || markerIcon2x,
+      iconUrl: markerIcon.default?.src || markerIcon,
+      shadowUrl: markerShadow.default?.src || markerShadow,
+    });
+
+    const container = document.getElementById("geo-map-container");
+    if (!container) return;
+
+    const map = L.map("geo-map-container").setView(position, 8);
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      maxZoom: 19,
+    }).addTo(map);
+
+    L.marker(position).addTo(map);
+
+    const handleClick = (e: any) => {
+      onPositionChange?.([e.latlng.lat, e.latlng.lng]);
+    };
+
+    map.on("click", handleClick);
+
+    setMapInstance(map);
+
+    return () => {
+      map.off("click", handleClick);
+      map.remove();
+    };
+  }, [isClient, onPositionChange]);
+
+  useEffect(() => {
+    if (mapInstance && isClient) {
+      mapInstance.setView(position, 8);
+      mapInstance.eachLayer((layer: any) => {
+        if (layer instanceof (require("leaflet") as any).Marker) {
+          mapInstance.removeLayer(layer);
+        }
+      });
+      const L = require("leaflet");
+      L.marker(position).addTo(mapInstance);
     }
-  }, [position]);
+  }, [position, mapInstance, isClient]);
+
+  if (!isClient) {
+    return <div className="h-64 w-full rounded-2xl border border-border/60 bg-muted/30" />;
+  }
 
   return (
-    <MapContainer
-      center={position}
-      zoom={6}
+    <div
+      id="geo-map-container"
       className="h-64 w-full rounded-2xl border border-border/60"
-      scrollWheelZoom={false}
-    >
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
-      <Marker position={position} />
-      <LocationMarker onChange={onPositionChange} />
-    </MapContainer>
+      style={{ minHeight: "256px", minWidth: "100%" }}
+    />
   );
 }

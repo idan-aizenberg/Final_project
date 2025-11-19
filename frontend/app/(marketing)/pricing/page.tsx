@@ -55,7 +55,7 @@ export default function PricingPage() {
                   ))}
                 </ul>
                 <Button asChild className="mt-auto rounded-full">
-                  <Link href={id === "enterprise" ? "mailto:sales@weathersight.ai" : "/search"}>
+                  <Link href={id === "enterprise" ? "mailto:sales@weathersight.ai" : `/checkout?plan=${id}`}>
                     {id === "enterprise" ? "Contact sales" : "Start now"}
                   </Link>
                 </Button>

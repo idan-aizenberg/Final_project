@@ -6,6 +6,7 @@ import { ThemeProvider } from "next-themes";
 import { TierProvider } from "@/hooks/useTier";
 import { I18nProvider } from "@/components/providers/i18n-provider";
 import { Toaster } from "@/components/ui/toaster";
+import { AuthProvider } from "@/context/AuthContext";
 
 export function AppProviders({ children }: { children: ReactNode }) {
   const [queryClient] = useState(
@@ -21,15 +22,17 @@ export function AppProviders({ children }: { children: ReactNode }) {
   );
 
   return (
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-      <I18nProvider>
-        <TierProvider>
-          <QueryClientProvider client={queryClient}>
-            {children}
-            <Toaster />
-          </QueryClientProvider>
-        </TierProvider>
-      </I18nProvider>
-    </ThemeProvider>
+    <AuthProvider>
+      <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+        <I18nProvider>
+          <TierProvider>
+            <QueryClientProvider client={queryClient}>
+              {children}
+              <Toaster />
+            </QueryClientProvider>
+          </TierProvider>
+        </I18nProvider>
+      </ThemeProvider>
+    </AuthProvider>
   );
 }
