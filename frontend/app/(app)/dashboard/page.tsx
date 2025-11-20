@@ -2,9 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, Clock3, FolderPlus, MapPinned } from "lucide-react";
+import { ArrowRight, Clock3, FolderPlus, MapPinned, Crown, Zap, Shield } from "lucide-react";
 
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -14,49 +13,78 @@ import { MetricCard } from "@/components/shared/MetricCard";
 import { fetchRecentSearches, fetchUsage } from "@/lib/api";
 import { formatDateRange } from "@/lib/format";
 import { tiers } from "@/lib/tiers";
-import { useTier } from "@/hooks/useTier";
+import { useAuth } from "@/context/AuthContext";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { tier, setQueriesUsedToday } = useTier();
+  const { userProfile } = useAuth();
+  const tier = userProfile?.subscription_tier || 'basic';
 
   const recentSearches = useQuery({ queryKey: ["recent-searches"], queryFn: fetchRecentSearches });
   const usage = useQuery({ queryKey: ["usage"], queryFn: fetchUsage });
 
-  useEffect(() => {
-    if (usage.data) {
-      setQueriesUsedToday(usage.data.usedToday);
-    }
-  }, [usage.data, setQueriesUsedToday]);
-
   const tierDefinition = tiers[tier];
   const remaining = tierDefinition.queriesPerDay === "unlimited" ? Infinity : tierDefinition.queriesPerDay - (usage.data?.usedToday ?? 0);
+
+  const getTierIcon = (tier: string) => {
+    switch (tier) {
+      case 'professional':
+        return <Crown className="h-5 w-5 text-purple-500" />;
+      case 'enterprise':
+        return <Shield className="h-5 w-5 text-amber-500" />;
+      case 'standard':
+        return <Zap className="h-5 w-5 text-blue-500" />;
+      default:
+        return <FolderPlus className="h-5 w-5 text-primary" />;
+    }
+  };
+
+  const getTierColor = (tier: string) => {
+    switch (tier) {
+      case 'professional':
+        return 'bg-purple-500/10 text-purple-600 border-purple-500/30';
+      case 'enterprise':
+        return 'bg-amber-500/10 text-amber-600 border-amber-500/30';
+      case 'standard':
+        return 'bg-blue-500/10 text-blue-600 border-blue-500/30';
+      default:
+        return 'bg-primary/10 text-primary border-primary/30';
+    }
+  };
 
   return (
     <div className="space-y-10">
       <PageHeader
-        title="Dashboard"
+        title={`Welcome back${userProfile?.full_name ? `, ${userProfile.full_name}` : ''}!`}
         description="Track recent forecast runs, monitor usage, and jump back into your saved locations."
         breadcrumbs={[{ label: "Home", href: "/" }, { label: "Dashboard" }]}
         actions={
-          <Button className="rounded-full" asChild>
-            <Link href="/search" className="flex items-center gap-2">
-              New search
-              <ArrowRight className="h-4 w-4" aria-hidden />
-            </Link>
-          </Button>
+          <div className="flex items-center gap-3">
+            <Badge variant="outline" className={cn("text-sm", getTierColor(tier))}>
+              {getTierIcon(tier)}
+              <span className="ml-1.5">{tierDefinition.name}</span>
+            </Badge>
+            <Button className="rounded-full" asChild>
+              <Link href="/search" className="flex items-center gap-2">
+                New search
+                <ArrowRight className="h-4 w-4" aria-hidden />
+              </Link>
+            </Button>
+          </div>
         }
       />
 
       <section className="grid gap-4 md:grid-cols-3">
         <MetricCard
-          label="Tier"
+          label="Subscription Tier"
           primaryValue={tierDefinition.name}
           deltaLabel="Horizon"
           deltaValue={`${tierDefinition.horizonDays}-day outlook`}
           trend="steady"
-          footer="Upgrade for deeper horizons, real-time alerts, and additional exports."
-          icon={<FolderPlus className="h-5 w-5 text-primary" aria-hidden />}
+          footer={tier === 'basic' ? "Upgrade for deeper horizons and real-time alerts." : "Enjoying premium features!"}
+          icon={getTierIcon(tier)}
         />
         <MetricCard
           label="Queries remaining"
@@ -132,6 +160,49 @@ export default function DashboardPage() {
           />
         )}
       </section>
+
+      {/* Tier-specific promotional content */}
+      {tier === 'basic' && (
+        <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-blue-500/5">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Zap className="h-5 w-5 text-primary" />
+                  Unlock More with Standard
+                </CardTitle>
+                <CardDescription className="mt-2">
+                  Get 50 queries per day, 14-day forecasts, and advanced export options
+                </CardDescription>
+              </div>
+              <Button variant="default" className="rounded-full" asChild>
+                <Link href="/pricing">Upgrade</Link>
+              </Button>
+            </div>
+          </CardHeader>
+        </Card>
+      )}
+
+      {tier === 'standard' && (
+        <Card className="border-purple-500/30 bg-gradient-to-br from-purple-500/5 to-pink-500/5">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Crown className="h-5 w-5 text-purple-500" />
+                  Go Professional for Advanced Features
+                </CardTitle>
+                <CardDescription className="mt-2">
+                  Unlock unlimited queries, 30-day forecasts, real-time alerts, and priority support
+                </CardDescription>
+              </div>
+              <Button variant="default" className="rounded-full" asChild>
+                <Link href="/pricing">Upgrade</Link>
+              </Button>
+            </div>
+          </CardHeader>
+        </Card>
+      )}
     </div>
   );
 }
