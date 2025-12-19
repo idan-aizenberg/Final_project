@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 
 interface Crumb {
   label: string;
-  href?: string;
+  href?: string | any;
 }
 
 interface PageHeaderProps {

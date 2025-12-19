@@ -87,10 +87,12 @@ export class WeatherDataLoader {
   }
 
   /**
-   * Batch insert grid coordinates
+   * Batch insert grid coordinates (upsert to handle duplicates)
    */
   private async insertGridBatch(gridPoints: GridPoint[]): Promise<void> {
-    const { error } = await this.supabase.from('weather_grid').insert(gridPoints);
+    const { error } = await this.supabase
+      .from('weather_grid')
+      .upsert(gridPoints, { onConflict: 'grid_index' });
 
     if (error) {
       console.error('Error inserting grid batch:', error);
@@ -170,7 +172,9 @@ export class WeatherDataLoader {
    * Batch insert forecast records
    */
   private async insertForecastBatch(records: ForecastRecord[]): Promise<void> {
-    const { error } = await this.supabase.from('weather_forecasts').insert(records);
+    const { error } = await this.supabase
+      .from('weather_forecasts')
+      .upsert(records, { onConflict: 'grid_index,day_of_year,forecast_year' });
 
     if (error) {
       console.error('Error inserting forecast batch:', error);

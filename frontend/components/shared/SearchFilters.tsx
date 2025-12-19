@@ -101,7 +101,8 @@ export function SearchFilters({ form, presets, onSubmit, queryCost, queryLimit, 
   };
 
   const handleMapPosition = useCallback(
-    ([lat, lng]: [number, number]) => {
+    (position: any) => {
+      const [lat, lng] = Array.isArray(position) ? position : [position.lat, position.lng];
       setValue("latitude", lat);
       setValue("longitude", lng);
     },

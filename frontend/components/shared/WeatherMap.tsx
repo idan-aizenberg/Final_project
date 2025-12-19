@@ -84,7 +84,13 @@ export function WeatherMap({
       const rangeResponse = await fetch(`/api/weather/range?day=${dayOfYear}`);
       if (rangeResponse.ok) {
         const range = await rangeResponse.json();
-        setTempRange(range);
+        // Ensure range has valid min/max values
+        if (range && typeof range.min === 'number' && typeof range.max === 'number') {
+          setTempRange(range);
+        } else {
+          console.warn('Invalid temperature range received, using defaults');
+          setTempRange({ min: -20, max: 40 });
+        }
       }
 
       // Load grid points with temperatures (sampled for performance)
@@ -97,6 +103,9 @@ export function WeatherMap({
       }
     } catch (error) {
       console.error('Error loading map data:', error);
+      // Reset to defaults on error
+      setTempRange({ min: -20, max: 40 });
+      setGridPoints([]);
     } finally {
       setLoading(false);
     }
@@ -216,7 +225,9 @@ export function WeatherMap({
       <div className="mt-4 p-4 bg-muted/50 rounded-lg">
         <p className="text-sm font-medium mb-2">Temperature Scale</p>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">{tempRange.min.toFixed(0)}°C</span>
+          <span className="text-xs text-muted-foreground">
+            {tempRange?.min?.toFixed(0) ?? '-20'}°C
+          </span>
           <div className="flex-1 h-4 rounded-full" style={{
             background: `linear-gradient(to right, 
               rgb(59, 130, 246), 
@@ -225,7 +236,9 @@ export function WeatherMap({
               rgb(249, 115, 22), 
               rgb(239, 68, 68))`
           }} />
-          <span className="text-xs text-muted-foreground">{tempRange.max.toFixed(0)}°C</span>
+          <span className="text-xs text-muted-foreground">
+            {tempRange?.max?.toFixed(0) ?? '40'}°C
+          </span>
         </div>
       </div>
     </div>

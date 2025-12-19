@@ -3,16 +3,16 @@ import { Check, Minus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { tiers, tierOrder } from "@/lib/tiers";
+import { tiers, tierOrder, type TierId } from "@/lib/tiers";
 
 const featureMatrix = [
-  { label: "Queries per day", render: (tier: string) => (tiers[tier].queriesPerDay === "unlimited" ? "Unlimited" : `${tiers[tier].queriesPerDay}`) },
-  { label: "Forecast horizon", render: (tier: string) => `${tiers[tier].horizonDays} days` },
-  { label: "Probabilistic insights", render: (tier: string) => tiers[tier].gating.probabilistic },
-  { label: "Extreme event scouting", render: (tier: string) => tiers[tier].gating.extremeEvents },
-  { label: "Exports", render: (tier: string) => tiers[tier].gating.exports.length > 0 ? tiers[tier].gating.exports.join(", ") : false },
-  { label: "Alert channels", render: (tier: string) => tiers[tier].gating.alerts.length > 0 ? tiers[tier].gating.alerts.join(", ") : false },
-  { label: "Dashboards", render: (tier: string) => tiers[tier].gating.dashboards === "all" ? "All industries" : tiers[tier].gating.dashboards === 0 ? false : `${tiers[tier].gating.dashboards}` },
+  { label: "Queries per day", render: (tier: TierId) => (tiers[tier].queriesPerDay === "unlimited" ? "Unlimited" : `${tiers[tier].queriesPerDay}`) },
+  { label: "Forecast horizon", render: (tier: TierId) => `${tiers[tier].horizonDays} days` },
+  { label: "Probabilistic insights", render: (tier: TierId) => tiers[tier].gating.probabilistic },
+  { label: "Extreme event scouting", render: (tier: TierId) => tiers[tier].gating.extremeEvents },
+  { label: "Exports", render: (tier: TierId) => tiers[tier].gating.exports.length > 0 ? tiers[tier].gating.exports.join(", ") : false },
+  { label: "Alert channels", render: (tier: TierId) => tiers[tier].gating.alerts.length > 0 ? tiers[tier].gating.alerts.join(", ") : false },
+  { label: "Dashboards", render: (tier: TierId) => tiers[tier].gating.dashboards === "all" ? "All industries" : tiers[tier].gating.dashboards === 0 ? false : `${tiers[tier].gating.dashboards}` },
 ];
 
 const tierPrices: Record<string, string> = {

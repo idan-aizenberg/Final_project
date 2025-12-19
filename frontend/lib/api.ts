@@ -222,7 +222,7 @@ export async function runForecastQuery(params: Omit<ForecastQuery, "id" | "creat
       narrative: point.avgTemp > 24
         ? "Warm spell with higher humidity. Prepare hydration measures."
         : "Seasonal temperatures with light precipitation risk.",
-      riskLevel: point.precipProb > 0.6 ? "medium" : point.avgTemp > 26 ? "medium" : "low",
+      riskLevel: (point.precipProb > 0.6 ? "medium" : point.avgTemp > 26 ? "medium" : "low") as "low" | "medium" | "high",
     }));
 
   const result: ForecastResult = {

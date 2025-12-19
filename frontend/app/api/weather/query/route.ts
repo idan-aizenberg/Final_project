@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getWeatherService } from '@/lib/weatherGeoService';
 
+export const dynamic = 'force-dynamic';
+
 function getCurrentDayOfYear(): number {
   const now = new Date();
   const start = new Date(now.getFullYear(), 0, 0);

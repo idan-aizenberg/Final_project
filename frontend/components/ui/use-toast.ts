@@ -124,7 +124,7 @@ function useToast() {
     return {
       id,
       dismiss: () => dispatch({ type: actionTypes.DISMISS_TOAST, toastId: id }),
-      update: (toastProps: ToastAction["toast"]) =>
+      update: (toastProps: Partial<ToasterToast>) =>
         dispatch({ type: actionTypes.UPDATE_TOAST, toast: { ...toastProps, id } }),
     };
   }, []);

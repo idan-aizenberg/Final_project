@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, CheckCircle2 } from 'lucide-react'
@@ -11,7 +11,7 @@ import { PaymentForm } from '@/components/PaymentForm'
 import { SUBSCRIPTION_PLANS, getPlanById, formatPrice } from '@/lib/subscription-plans'
 import { useAuth } from '@/context/AuthContext'
 
-export default function CheckoutPage() {
+function CheckoutContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user, updateSubscription } = useAuth()
@@ -266,5 +266,21 @@ export default function CheckoutPage() {
         </p>
       </div>
     </div>
+  )
+}
+
+export default function CheckoutPage() {
+  return (
+    <Suspense fallback={
+      <div className="w-full max-w-4xl mx-auto py-12 px-4">
+        <Card className="border-border/60 bg-card/90">
+          <CardContent className="py-12">
+            <p className="text-center text-muted-foreground">Loading checkout...</p>
+          </CardContent>
+        </Card>
+      </div>
+    }>
+      <CheckoutContent />
+    </Suspense>
   )
 }

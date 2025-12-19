@@ -27,7 +27,7 @@ export function SideNav() {
         {navItems.map(({ href, label, icon: Icon }) => {
           const active = pathname.startsWith(href);
           return (
-            <Link key={href} href={href} aria-current={active ? "page" : undefined}>
+            <Link key={href} href={href as any} aria-current={active ? "page" : undefined}>
               <Button
                 variant={active ? "secondary" : "ghost"}
                 className={cn(
@@ -42,7 +42,7 @@ export function SideNav() {
           );
         })}
         {isAdmin && (
-          <Link href="/admin" className="pt-4" aria-current={pathname.startsWith("/admin") ? "page" : undefined}>
+          <Link href={"/admin" as any} className="pt-4" aria-current={pathname.startsWith("/admin") ? "page" : undefined}>
             <Button
               variant={pathname.startsWith("/admin") ? "secondary" : "ghost"}
               className={cn(
