@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
@@ -10,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { MetricCard } from "@/components/shared/MetricCard";
+import { SearchTypeDialog } from "@/components/shared/SearchTypeDialog";
 import { fetchRecentSearches, fetchUsage } from "@/lib/api";
 import { formatDateRange } from "@/lib/format";
 import { tiers } from "@/lib/tiers";
@@ -21,6 +23,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const { userProfile } = useAuth();
   const tier = userProfile?.subscription_tier || 'basic';
+  const [searchDialogOpen, setSearchDialogOpen] = useState(false);
 
   const recentSearches = useQuery({ queryKey: ["recent-searches"], queryFn: fetchRecentSearches });
   const usage = useQuery({ queryKey: ["usage"], queryFn: fetchUsage });
@@ -66,11 +69,9 @@ export default function DashboardPage() {
               {getTierIcon(tier)}
               <span className="ml-1.5">{tierDefinition.name}</span>
             </Badge>
-            <Button className="rounded-full" asChild>
-              <Link href="/search" className="flex items-center gap-2">
-                New search
-                <ArrowRight className="h-4 w-4" aria-hidden />
-              </Link>
+            <Button className="rounded-full" onClick={() => setSearchDialogOpen(true)}>
+              New search
+              <ArrowRight className="h-4 w-4 ml-2" aria-hidden />
             </Button>
           </div>
         }
@@ -203,6 +204,9 @@ export default function DashboardPage() {
           </CardHeader>
         </Card>
       )}
+
+      {/* Search Type Dialog */}
+      <SearchTypeDialog open={searchDialogOpen} onOpenChange={setSearchDialogOpen} />
     </div>
   );
 }

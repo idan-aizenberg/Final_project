@@ -15,9 +15,10 @@ L.Icon.Default.mergeOptions({
 
 interface WeatherMapProps {
   dayOfYear: number;
-  onLocationClick: (lat: number, lon: number) => void;
+  onLocationClick?: (lat: number, lon: number) => void;
   selectedGridIndex?: number;
   highlightLocation?: { lat: number; lon: number };
+  highlightGridIndices?: number[];
 }
 
 interface GridPointWithTemp {
@@ -33,10 +34,12 @@ interface TempRange {
 }
 
 // Component to handle map click events
-function MapClickHandler({ onClick }: { onClick: (lat: number, lon: number) => void }) {
+function MapClickHandler({ onClick }: { onClick?: (lat: number, lon: number) => void }) {
   const map = useMap();
 
   useEffect(() => {
+    if (!onClick) return;
+    
     const handleClick = (e: L.LeafletMouseEvent) => {
       onClick(e.latlng.lat, e.latlng.lng);
     };
@@ -68,6 +71,7 @@ export function WeatherMap({
   onLocationClick,
   selectedGridIndex,
   highlightLocation,
+  highlightGridIndices,
 }: WeatherMapProps) {
   const [gridPoints, setGridPoints] = useState<GridPointWithTemp[]>([]);
   const [tempRange, setTempRange] = useState<TempRange>({ min: -20, max: 40 });
@@ -176,15 +180,18 @@ export function WeatherMap({
         {/* Render grid points with temperature colors */}
         {gridPoints.map((point) => {
           const isSelected = point.gridIndex === selectedGridIndex;
+          const isHighlighted = highlightGridIndices?.includes(point.gridIndex);
+          const shouldHighlight = isSelected || isHighlighted;
+          
           return (
             <CircleMarker
               key={point.gridIndex}
               center={[point.lat, point.lon]}
-              radius={isSelected ? 8 : 3}
-              fillColor={isSelected ? '#22c55e' : getColorForTemp(point.temperature)}
-              color={isSelected ? '#fff' : 'transparent'}
-              weight={isSelected ? 2 : 0}
-              fillOpacity={isSelected ? 1 : 0.6}
+              radius={shouldHighlight ? 6 : 3}
+              fillColor={isSelected ? '#22c55e' : (isHighlighted ? '#f59e0b' : getColorForTemp(point.temperature))}
+              color={shouldHighlight ? '#fff' : 'transparent'}
+              weight={shouldHighlight ? 2 : 0}
+              fillOpacity={shouldHighlight ? 1 : 0.6}
             >
               <Popup>
                 <div className="text-sm space-y-1">
@@ -196,6 +203,11 @@ export function WeatherMap({
                   {isSelected && (
                     <div className="text-xs text-green-600 font-medium mt-1">
                       Currently selected
+                    </div>
+                  )}
+                  {isHighlighted && !isSelected && (
+                    <div className="text-xs text-amber-600 font-medium mt-1">
+                      Matches search criteria
                     </div>
                   )}
                 </div>

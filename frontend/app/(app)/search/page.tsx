@@ -1,12 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Search, MapPin, Calendar, Thermometer, Grid3x3 } from "lucide-react";
-import { geocodeLocation } from "@/lib/geocoding";
+import { geocodeLocation, searchLocationSuggestions, type LocationSuggestion } from "@/lib/geocoding";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 import dynamic from "next/dynamic";
 
 // Dynamically import map to avoid SSR issues with Leaflet
@@ -34,6 +39,19 @@ function getCurrentDayOfYear(): number {
   return Math.floor(diff / oneDay);
 }
 
+function getDayOfYearFromDate(date: Date): number {
+  const start = new Date(date.getFullYear(), 0, 0);
+  const diff = date.getTime() - start.getTime();
+  const oneDay = 1000 * 60 * 60 * 24;
+  return Math.floor(diff / oneDay);
+}
+
+function getDateFromDayOfYear(dayOfYear: number, year: number = 2025): Date {
+  const date = new Date(year, 0);
+  date.setDate(dayOfYear);
+  return date;
+}
+
 function getDayOfYearDate(dayOfYear: number): string {
   const date = new Date(2025, 0, dayOfYear);
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -43,8 +61,74 @@ export default function SearchPage() {
   const [location, setLocation] = useState("");
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
   const [dayOfYear, setDayOfYear] = useState(getCurrentDayOfYear());
+  const [selectedDate, setSelectedDate] = useState<Date>(getDateFromDayOfYear(getCurrentDayOfYear()));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  
+  // Location autocomplete states
+  const [locationSuggestions, setLocationSuggestions] = useState<LocationSuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Handle location input change and trigger autocomplete
+  const handleLocationChange = (value: string) => {
+    setLocation(value);
+    
+    // Clear existing timeout
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    // Debounce the search
+    if (value.length >= 2) {
+      setLoadingSuggestions(true);
+      searchTimeoutRef.current = setTimeout(async () => {
+        const suggestions = await searchLocationSuggestions(value);
+        setLocationSuggestions(suggestions);
+        setLoadingSuggestions(false);
+        setShowSuggestions(true);
+      }, 300);
+    } else {
+      setLocationSuggestions([]);
+      setShowSuggestions(false);
+    }
+  };
+
+  // Handle location selection from suggestions
+  const handleLocationSelect = async (suggestion: LocationSuggestion) => {
+    setLocation(suggestion.name);
+    setShowSuggestions(false);
+    
+    // Immediately search weather for this location
+    setLoading(true);
+    setError("");
+
+    try {
+      const response = await fetch(
+        `/api/weather/query?lat=${suggestion.lat}&lon=${suggestion.lon}&day=${dayOfYear}`
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch weather data');
+      }
+
+      const data = await response.json();
+
+      setWeatherData({
+        ...data,
+        cityName: suggestion.name,
+        displayName: suggestion.displayName,
+        searchedLocation: { lat: suggestion.lat, lon: suggestion.lon },
+      });
+    } catch (err: any) {
+      setError(err.message || 'An error occurred');
+      console.error('Search error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleCitySearch = async () => {
     if (!location.trim()) {
@@ -54,6 +138,7 @@ export default function SearchPage() {
 
     setLoading(true);
     setError("");
+    setShowSuggestions(false);
 
     try {
       // Step 1: Geocode city name to coordinates
@@ -86,6 +171,39 @@ export default function SearchPage() {
       setLoading(false);
     }
   };
+
+  // Handle date change from calendar
+  const handleDateChange = (date: Date | undefined) => {
+    if (date) {
+      setSelectedDate(date);
+      const newDayOfYear = getDayOfYearFromDate(date);
+      setDayOfYear(newDayOfYear);
+    }
+  };
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      // Don't close if clicking inside the input or suggestions
+      if (!target.closest('[data-autocomplete-container]')) {
+        setShowSuggestions(false);
+      }
+    };
+    if (showSuggestions) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [showSuggestions]);
 
   const handleMapClick = async (lat: number, lon: number) => {
     // Direct coordinate query from map click
@@ -128,39 +246,81 @@ export default function SearchPage() {
           <Card>
             <CardContent className="pt-6">
               <div className="flex flex-col gap-4 sm:flex-row">
-                <div className="flex-1 flex gap-2">
-                  <Input
-                    placeholder="Search city (e.g., Tel Aviv, New York, Tokyo)"
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleCitySearch()}
-                    className="flex-1"
-                    disabled={loading}
-                  />
-                  <Button onClick={handleCitySearch} disabled={loading}>
+                {/* Location Search with Autocomplete */}
+                <div className="flex-1 flex gap-2 relative">
+                  <div className="flex-1 relative" data-autocomplete-container>
+                    <Input
+                      placeholder="Search city or airport (e.g., Tel Aviv, JFK)"
+                      value={location}
+                      onChange={(e) => handleLocationChange(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && handleCitySearch()}
+                      onFocus={() => locationSuggestions.length > 0 && setShowSuggestions(true)}
+                      className="flex-1"
+                      disabled={loading}
+                    />
+                    {/* Autocomplete Dropdown */}
+                    {showSuggestions && locationSuggestions.length > 0 && (
+                      <div className="absolute z-[100] w-full mt-1 bg-popover border rounded-md shadow-md max-h-[300px] overflow-y-auto">
+                        <div className="p-1">
+                          {locationSuggestions.map((suggestion, index) => (
+                            <div
+                              key={index}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleLocationSelect(suggestion);
+                              }}
+                              className="flex items-start gap-2 px-2 py-2 rounded-sm cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors"
+                            >
+                              <MapPin className="mt-0.5 h-4 w-4 text-muted-foreground flex-shrink-0" />
+                              <div className="flex flex-col min-w-0 flex-1">
+                                <span className="font-medium text-sm">{suggestion.name}</span>
+                                <span className="text-xs text-muted-foreground truncate">
+                                  {suggestion.displayName}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <Button onClick={handleCitySearch} disabled={loading || !location.trim()}>
                     <Search className="h-4 w-4 mr-2" />
                     {loading ? 'Searching...' : 'Search'}
                   </Button>
                 </div>
+
+                {/* Date Picker */}
                 <div className="flex gap-2 items-center">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <Input
-                    type="number"
-                    placeholder="Day"
-                    value={dayOfYear}
-                    onChange={(e) => {
-                      const val = parseInt(e.target.value);
-                      if (val >= 1 && val <= 365) setDayOfYear(val);
-                    }}
-                    min={1}
-                    max={365}
-                    className="w-24"
-                    title="Day of year (1-365)"
-                    disabled={loading}
-                  />
-                  <span className="text-sm text-muted-foreground whitespace-nowrap">
-                    {getDayOfYearDate(dayOfYear)}
-                  </span>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "justify-start text-left font-normal",
+                          !selectedDate && "text-muted-foreground"
+                        )}
+                        disabled={loading}
+                      >
+                        <Calendar className="mr-2 h-4 w-4" />
+                        {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 z-[9999]" align="end">
+                      <CalendarComponent
+                        mode="single"
+                        selected={selectedDate}
+                        onSelect={handleDateChange}
+                        defaultMonth={selectedDate}
+                        fromDate={new Date(2025, 0, 1)}
+                        toDate={new Date(2025, 11, 31)}
+                        disabled={(date) => 
+                          date.getFullYear() !== 2025
+                        }
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
               </div>
               {error && (
