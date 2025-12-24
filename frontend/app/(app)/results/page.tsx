@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import {
   Area,
@@ -15,7 +16,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { AlertTriangle, Download, Save, Send, Share2 } from "lucide-react";
+import { AlertTriangle, Download, FileSpreadsheet, FileText, Save, Send, Share2, Lock } from "lucide-react";
 
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ProbabilityBar } from "@/components/shared/ProbabilityBar";
 import { SeverityBadge } from "@/components/shared/SeverityBadge";
@@ -35,6 +43,7 @@ import { formatDate, formatPercent, formatPrecip, formatTemperature } from "@/li
 import { tiers } from "@/lib/tiers";
 import { useTier } from "@/hooks/useTier";
 import { toast } from "@/components/ui/use-toast";
+import { exportAndDownload, getAvailableExportFormats } from "@/lib/export";
 
 function TemperatureTooltip({ active, payload }: any) {
   if (!active || !payload?.length) return null;
@@ -65,8 +74,8 @@ export default function ResultsPage() {
   const resultId = searchParams.get("id");
   const temperatureUnit = (searchParams.get("temp") as "c" | "f") ?? "c";
   const precipUnit = (searchParams.get("precip") as "mm" | "in") ?? "mm";
-  const { tier } = useTier();
-  const tierDefinition = tiers[tier];
+  const { tier, tierDefinition, canExport, canAccessFeature } = useTier();
+  const [exporting, setExporting] = useState<string | null>(null);
 
   const resultQuery = useQuery({
     queryKey: ["forecast-result", resultId],
@@ -83,6 +92,51 @@ export default function ResultsPage() {
     if (!resultId || !recentSearches.data) return undefined;
     return recentSearches.data.find((item) => item.id === resultId);
   }, [recentSearches.data, resultId]);
+
+  const availableExportFormats = getAvailableExportFormats(tier);
+
+  const handleExport = async (format: "csv" | "pdf" | "excel") => {
+    if (!canExport(format)) {
+      toast({
+        title: "Export unavailable",
+        description: `${format.toUpperCase()} exports require Professional plan or higher`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!resultQuery.data) {
+      toast({
+        title: "No data to export",
+        description: "Please wait for the forecast data to load",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setExporting(format);
+    try {
+      await exportAndDownload(
+        tier,
+        format,
+        format === "pdf" ? resultQuery.data : resultQuery.data.metrics,
+        searchMeta?.location || "forecast",
+        { temperatureUnit, precipUnit }
+      );
+      toast({
+        title: "Export complete",
+        description: `Your ${format.toUpperCase()} file has been downloaded`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Export failed",
+        description: error.message || "An error occurred while exporting",
+        variant: "destructive",
+      });
+    } finally {
+      setExporting(null);
+    }
+  };
 
   if (!resultId) {
     return (
@@ -144,12 +198,9 @@ export default function ResultsPage() {
           <Button size="sm" variant="ghost" className="rounded-full" onClick={() => toast({ title: "Share link copied" })}>
             <Share2 className="mr-1 h-4 w-4" aria-hidden /> Share
           </Button>
-          <TierGate
-            allowed={tierDefinition.gating.alerts.length > 0}
-            requiredTier="professional"
-            reason="Automated alerts unlock with Professional tiers."
-            className="rounded-full border-none"
-          >
+          
+          {/* Alert Button with Tier Gate */}
+          {canAccessFeature("alerts") ? (
             <Button
               size="sm"
               variant="ghost"
@@ -158,17 +209,71 @@ export default function ResultsPage() {
             >
               <Send className="mr-1 h-4 w-4" aria-hidden /> Set alert
             </Button>
-          </TierGate>
-          <TierGate
-            allowed={tierDefinition.gating.exports.includes("csv")}
-            requiredTier="professional"
-            reason="Downloads are limited to Professional and Enterprise plans."
-            className="rounded-full border-none"
-          >
-            <Button size="sm" className="rounded-full" onClick={() => toast({ title: "Preparing export" })}>
-              <Download className="mr-1 h-4 w-4" aria-hidden /> Download
+          ) : (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="rounded-full text-muted-foreground"
+              onClick={() => toast({ 
+                title: "Alerts locked", 
+                description: "Upgrade to Professional to set automated alerts",
+                variant: "destructive" 
+              })}
+            >
+              <Lock className="mr-1 h-4 w-4" aria-hidden /> Set alert
             </Button>
-          </TierGate>
+          )}
+
+          {/* Export Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button 
+                size="sm" 
+                className="rounded-full"
+                disabled={availableExportFormats.length === 0 && tier !== "professional" && tier !== "enterprise"}
+              >
+                <Download className="mr-1 h-4 w-4" aria-hidden /> 
+                {exporting ? `Exporting ${exporting.toUpperCase()}...` : "Download"}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {availableExportFormats.length > 0 ? (
+                <>
+                  {canExport("csv") && (
+                    <DropdownMenuItem onClick={() => handleExport("csv")} disabled={exporting !== null}>
+                      <FileText className="mr-2 h-4 w-4" />
+                      Export as CSV
+                    </DropdownMenuItem>
+                  )}
+                  {canExport("pdf") && (
+                    <DropdownMenuItem onClick={() => handleExport("pdf")} disabled={exporting !== null}>
+                      <FileText className="mr-2 h-4 w-4" />
+                      Export as PDF
+                    </DropdownMenuItem>
+                  )}
+                  {canExport("excel") && (
+                    <DropdownMenuItem onClick={() => handleExport("excel")} disabled={exporting !== null}>
+                      <FileSpreadsheet className="mr-2 h-4 w-4" />
+                      Export as Excel
+                    </DropdownMenuItem>
+                  )}
+                </>
+              ) : (
+                <>
+                  <DropdownMenuItem disabled className="text-muted-foreground">
+                    <Lock className="mr-2 h-4 w-4" />
+                    Exports require Professional plan
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/pricing" className="cursor-pointer">
+                      Upgrade to unlock exports
+                    </Link>
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </div>
@@ -186,8 +291,14 @@ export default function ResultsPage() {
       <Tabs defaultValue="overview" className="w-full">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="probabilities">Probabilities</TabsTrigger>
-          <TabsTrigger value="extreme">Extreme events</TabsTrigger>
+          <TabsTrigger value="probabilities">
+            Probabilities
+            {!canAccessFeature("probabilistic") && <Lock className="ml-1 h-3 w-3" />}
+          </TabsTrigger>
+          <TabsTrigger value="extreme">
+            Extreme events
+            {!canAccessFeature("extremeEvents") && <Lock className="ml-1 h-3 w-3" />}
+          </TabsTrigger>
           <TabsTrigger value="table">Table</TabsTrigger>
         </TabsList>
 
@@ -276,7 +387,7 @@ export default function ResultsPage() {
 
         <TabsContent value="probabilities" className="space-y-4">
           <TierGate
-            allowed={tierDefinition.gating.probabilistic}
+            allowed={canAccessFeature("probabilistic")}
             requiredTier="standard"
             reason="Probability distributions unlock from Standard tier onwards."
           >
@@ -296,7 +407,7 @@ export default function ResultsPage() {
 
         <TabsContent value="extreme" className="space-y-4">
           <TierGate
-            allowed={tierDefinition.gating.extremeEvents}
+            allowed={canAccessFeature("extremeEvents")}
             requiredTier="professional"
             reason="Extreme event scouting is included with Professional and Enterprise tiers."
           >
@@ -335,10 +446,13 @@ export default function ResultsPage() {
         </TabsContent>
 
         <TabsContent value="table">
-          {tierDefinition.gating.exports.length === 0 && (
+          {!canAccessFeature("exports") && (
             <div className="mb-4 flex items-center gap-2 rounded-3xl border border-border/60 bg-muted/40 p-4 text-xs text-muted-foreground">
               <AlertTriangle className="h-4 w-4 text-amber-500" aria-hidden />
-              Exports are locked on your current plan. Upgrade to download CSV, PDF, or Excel packets.
+              <span>Exports are locked on your current plan.</span>
+              <Link href="/pricing" className="text-primary hover:underline ml-1">
+                Upgrade to download CSV, PDF, or Excel packets.
+              </Link>
             </div>
           )}
           <ScrollArea className="h-[420px] rounded-3xl border border-border/60 bg-background/70 p-2">
@@ -377,6 +491,28 @@ export default function ResultsPage() {
           </ScrollArea>
         </TabsContent>
       </Tabs>
+
+      {/* Tier upgrade prompt */}
+      {tier !== "professional" && tier !== "enterprise" && (
+        <Card className="border-purple-500/30 bg-gradient-to-br from-purple-500/5 to-pink-500/5">
+          <CardContent className="py-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-lg">Unlock Full Analysis</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {tier === "basic" 
+                    ? "Upgrade to Standard for probabilistic insights, or Professional for exports and alerts."
+                    : "Upgrade to Professional for extreme event scouting, exports, and email alerts."
+                  }
+                </p>
+              </div>
+              <Button asChild className="rounded-full">
+                <Link href="/pricing">View Plans</Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

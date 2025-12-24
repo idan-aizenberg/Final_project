@@ -18,3 +18,37 @@ export interface SearchFormValues {
   };
   autoAlert?: boolean;
 }
+
+export interface SavedSearch {
+  id: string;
+  name: string;
+  location: string;
+  lat: number;
+  lon: number;
+  displayName?: string;
+  dayOfYear?: number;
+  resolution: "daily" | "weekly" | "monthly";
+  forecastType: "standard" | "probabilistic" | "extreme";
+  isFavorite: boolean;
+  lastUsedAt?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface SavedSearchesResponse {
+  searches: SavedSearch[];
+  count: number;
+  limit: number | "unlimited";
+  canSaveMore: boolean;
+}
+
+export interface SaveSearchInput {
+  name: string;
+  location: string;
+  lat: number;
+  lon: number;
+  displayName?: string;
+  dayOfYear?: number;
+  resolution?: "daily" | "weekly" | "monthly";
+  forecastType?: "standard" | "probabilistic" | "extreme";
+}

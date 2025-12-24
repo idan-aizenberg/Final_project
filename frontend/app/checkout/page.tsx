@@ -3,38 +3,124 @@
 import { Suspense, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, CheckCircle2 } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, Shield, Zap, Crown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
+import { Badge } from '@/components/ui/badge'
 import { PaymentForm } from '@/components/PaymentForm'
-import { SUBSCRIPTION_PLANS, getPlanById, formatPrice } from '@/lib/subscription-plans'
+import { tiers, type TierId, formatTierPrice, getTierById } from '@/lib/tiers'
 import { useAuth } from '@/context/AuthContext'
 
 function CheckoutContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { user, updateSubscription } = useAuth()
+  const { user, userProfile, updateSubscription } = useAuth()
   
-  const planId = searchParams.get('plan') || 'pro'
-  const selectedPlan = getPlanById(planId)
+  const planId = (searchParams.get('plan') || 'standard') as TierId
+  const selectedTier = tiers[planId]
   
   const [isProcessing, setIsProcessing] = useState(false)
   const [paymentSuccess, setPaymentSuccess] = useState(false)
   const [transactionData, setTransactionData] = useState<any>(null)
 
-  if (!selectedPlan) {
+  const currentTier = userProfile?.subscription_tier || 'basic'
+  const isUpgrade = tiers[planId] && tiers[currentTier] 
+    ? tiers[planId].pricing.monthly > tiers[currentTier].pricing.monthly 
+    : false
+  const isDowngrade = tiers[planId] && tiers[currentTier]
+    ? tiers[planId].pricing.monthly < tiers[currentTier].pricing.monthly
+    : false
+
+  const getTierIcon = (tier: TierId) => {
+    switch (tier) {
+      case 'professional':
+        return <Crown className="h-5 w-5 text-purple-500" />
+      case 'enterprise':
+        return <Shield className="h-5 w-5 text-amber-500" />
+      case 'standard':
+        return <Zap className="h-5 w-5 text-blue-500" />
+      default:
+        return null
+    }
+  }
+
+  if (!selectedTier || planId === 'enterprise') {
     return (
       <div className="w-full max-w-2xl mx-auto py-12 px-4">
         <Card className="border-destructive/50 bg-destructive/10">
           <CardHeader>
-            <CardTitle className="text-destructive">Invalid Plan</CardTitle>
+            <CardTitle className="text-destructive">
+              {planId === 'enterprise' ? 'Enterprise Plan' : 'Invalid Plan'}
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-destructive mb-4">The subscription plan you selected is not available.</p>
-            <Link href="/pricing">
-              <Button variant="outline">Back to Pricing</Button>
-            </Link>
+            {planId === 'enterprise' ? (
+              <>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Enterprise plans require a custom quote. Please contact our sales team.
+                </p>
+                <div className="flex gap-3">
+                  <Button asChild>
+                    <a href="mailto:sales@weathersight.ai">Contact Sales</a>
+                  </Button>
+                  <Button variant="outline" asChild>
+                    <Link href="/pricing">Back to Pricing</Link>
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-destructive mb-4">The subscription plan you selected is not available.</p>
+                <Link href="/pricing">
+                  <Button variant="outline">Back to Pricing</Button>
+                </Link>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  // Handle free plan selection
+  if (selectedTier.pricing.monthly === 0) {
+    return (
+      <div className="w-full max-w-2xl mx-auto py-12 px-4">
+        <Card className="border-primary/50 bg-primary/5">
+          <CardHeader className="text-center">
+            <CardTitle>Free Plan</CardTitle>
+            <CardDescription>No payment required for the Basic plan</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-3 rounded-lg border border-primary/20 bg-background p-4">
+              <h3 className="font-semibold">Basic Plan Includes:</h3>
+              <ul className="space-y-2">
+                {selectedTier.features.map((feature, idx) => (
+                  <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
+                    <span className="text-primary mt-0.5">✓</span>
+                    <span>{feature}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            
+            <div className="flex gap-3">
+              <Button
+                onClick={async () => {
+                  if (user) {
+                    await updateSubscription('basic')
+                  }
+                  router.push('/dashboard')
+                }}
+                className="flex-1"
+              >
+                {user ? 'Activate Free Plan' : 'Get Started Free'}
+              </Button>
+              <Button variant="outline" asChild className="flex-1">
+                <Link href="/pricing">View Other Plans</Link>
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -47,8 +133,8 @@ function CheckoutContent() {
     
     try {
       // Update subscription in database if user is authenticated
-      if (user && selectedPlan.id !== 'basic' && selectedPlan.id !== 'enterprise') {
-        await updateSubscription(selectedPlan.id as 'basic' | 'standard' | 'professional' | 'enterprise')
+      if (user) {
+        await updateSubscription(planId)
       }
 
       // Simulate processing time
@@ -57,9 +143,9 @@ function CheckoutContent() {
       setPaymentSuccess(true)
       setIsProcessing(false)
       
-      // Redirect to account after 3 seconds
+      // Redirect to dashboard after 3 seconds
       setTimeout(() => {
-        router.push('/account?subscription=success')
+        router.push('/dashboard?subscription=success')
       }, 3000)
     } catch (error) {
       console.error('Error updating subscription:', error)
@@ -67,7 +153,7 @@ function CheckoutContent() {
       // Still show success for demo purposes
       setPaymentSuccess(true)
       setTimeout(() => {
-        router.push('/account?subscription=success')
+        router.push('/dashboard?subscription=success')
       }, 3000)
     }
   }
@@ -82,8 +168,12 @@ function CheckoutContent() {
                 <CheckCircle2 className="h-8 w-8 text-green-600" />
               </div>
             </div>
-            <CardTitle className="text-green-600">Payment Successful!</CardTitle>
-            <CardDescription>Your subscription has been activated</CardDescription>
+            <CardTitle className="text-green-600">
+              {isUpgrade ? 'Upgrade Successful!' : 'Subscription Activated!'}
+            </CardTitle>
+            <CardDescription>
+              Your {selectedTier.name} plan is now active
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             {/* Success Details */}
@@ -95,12 +185,15 @@ function CheckoutContent() {
               <Separator />
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Plan:</span>
-                <span className="font-semibold capitalize">{transactionData?.plan}</span>
+                <span className="font-semibold flex items-center gap-2">
+                  {getTierIcon(planId)}
+                  {selectedTier.name}
+                </span>
               </div>
               <Separator />
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Amount:</span>
-                <span className="font-semibold">{formatPrice(transactionData?.amount)}/month</span>
+                <span className="font-semibold">{formatTierPrice(planId)}/month</span>
               </div>
               <Separator />
               <div className="flex justify-between text-sm">
@@ -116,28 +209,41 @@ function CheckoutContent() {
               </div>
             </div>
 
+            {/* New Features */}
+            <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
+              <h4 className="font-semibold text-sm mb-2">You now have access to:</h4>
+              <ul className="space-y-1">
+                {selectedTier.features.slice(0, 5).map((feature, idx) => (
+                  <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
+                    <span className="text-primary">✓</span>
+                    <span>{feature}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
             {/* Confirmation Message */}
             <div className="rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950 p-4">
               <p className="text-sm text-blue-900 dark:text-blue-100">
                 A confirmation email has been sent to <strong>{transactionData?.email}</strong>. 
-                You will be redirected to your account dashboard in a few seconds.
+                You will be redirected to your dashboard in a few seconds.
               </p>
             </div>
 
             {/* Buttons */}
             <div className="flex gap-3 pt-4">
               <Button
-                onClick={() => router.push('/account')}
+                onClick={() => router.push('/dashboard')}
                 className="flex-1 bg-green-600 hover:bg-green-700"
               >
-                Go to Dashboard Now
+                Go to Dashboard
               </Button>
               <Button
-                onClick={() => router.push('/pricing')}
+                onClick={() => router.push('/search')}
                 variant="outline"
                 className="flex-1"
               >
-                Back to Plans
+                Start Searching
               </Button>
             </div>
           </CardContent>
@@ -154,9 +260,38 @@ function CheckoutContent() {
           <ArrowLeft className="h-4 w-4" />
           Back to Plans
         </Link>
-        <h1 className="text-3xl font-bold text-foreground mb-2">Complete Your Purchase</h1>
-        <p className="text-muted-foreground">Review your plan and complete the payment process</p>
+        <h1 className="text-3xl font-bold text-foreground mb-2">
+          {isUpgrade ? 'Upgrade Your Plan' : isDowngrade ? 'Change Your Plan' : 'Complete Your Purchase'}
+        </h1>
+        <p className="text-muted-foreground">
+          {isUpgrade 
+            ? `Upgrading from ${tiers[currentTier].name} to ${selectedTier.name}`
+            : 'Review your plan and complete the payment process'
+          }
+        </p>
       </div>
+
+      {/* Upgrade/Downgrade Banner */}
+      {userProfile && currentTier !== planId && (
+        <Card className={`mb-6 ${isUpgrade ? 'border-green-500/50 bg-green-500/5' : 'border-amber-500/50 bg-amber-500/5'}`}>
+          <CardContent className="py-4">
+            <div className="flex items-center gap-4">
+              {getTierIcon(planId)}
+              <div>
+                <p className="font-semibold">
+                  {isUpgrade ? 'Upgrading' : 'Changing'} from {tiers[currentTier].name} to {selectedTier.name}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {isUpgrade 
+                    ? 'Your new features will be available immediately after payment.'
+                    : 'Changes will take effect at your next billing cycle.'
+                  }
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Main Content */}
       <div className="grid lg:grid-cols-3 gap-8">
@@ -169,7 +304,14 @@ function CheckoutContent() {
             </CardHeader>
             <CardContent>
               <PaymentForm
-                plan={selectedPlan}
+                plan={{
+                  id: selectedTier.id,
+                  name: selectedTier.name,
+                  description: selectedTier.description,
+                  price: selectedTier.pricing.monthly,
+                  interval: 'monthly',
+                  features: selectedTier.features,
+                }}
                 onSuccess={handlePaymentSuccess}
                 isLoading={isProcessing}
               />
@@ -187,32 +329,54 @@ function CheckoutContent() {
               {/* Plan Details */}
               <div className="space-y-3">
                 <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <h3 className="font-semibold text-foreground">{selectedPlan.name}</h3>
-                    <p className="text-xs text-muted-foreground mt-1">{selectedPlan.description}</p>
+                  <div className="flex items-center gap-2">
+                    {getTierIcon(planId)}
+                    <div>
+                      <h3 className="font-semibold text-foreground">{selectedTier.name}</h3>
+                      <p className="text-xs text-muted-foreground mt-1">{selectedTier.description}</p>
+                    </div>
                   </div>
                 </div>
 
-                {/* Features */}
-                {selectedPlan.price > 0 && (
-                  <>
-                    <Separator />
-                    <div className="space-y-2">
-                      <p className="text-xs font-semibold text-muted-foreground uppercase">Includes:</p>
-                      <ul className="space-y-2">
-                        {selectedPlan.features.slice(0, 4).map((feature, idx) => (
-                          <li key={idx} className="text-xs text-muted-foreground flex items-start gap-2">
-                            <span className="text-primary mt-1">✓</span>
-                            <span>{feature}</span>
-                          </li>
-                        ))}
-                        {selectedPlan.features.length > 4 && (
-                          <li className="text-xs text-primary">+{selectedPlan.features.length - 4} more...</li>
-                        )}
-                      </ul>
-                    </div>
-                  </>
-                )}
+                {/* Key Features */}
+                <Separator />
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase">Key Benefits:</p>
+                  <ul className="space-y-2">
+                    <li className="text-xs text-muted-foreground flex items-start gap-2">
+                      <span className="text-primary mt-0.5">✓</span>
+                      <span>{selectedTier.queriesPerDay === 'unlimited' ? 'Unlimited' : selectedTier.queriesPerDay} queries/day</span>
+                    </li>
+                    <li className="text-xs text-muted-foreground flex items-start gap-2">
+                      <span className="text-primary mt-0.5">✓</span>
+                      <span>{selectedTier.horizonDays}-day forecast horizon</span>
+                    </li>
+                    {selectedTier.gating.probabilistic && (
+                      <li className="text-xs text-muted-foreground flex items-start gap-2">
+                        <span className="text-primary mt-0.5">✓</span>
+                        <span>Probabilistic insights</span>
+                      </li>
+                    )}
+                    {selectedTier.gating.extremeEvents && (
+                      <li className="text-xs text-muted-foreground flex items-start gap-2">
+                        <span className="text-primary mt-0.5">✓</span>
+                        <span>Extreme event scouting</span>
+                      </li>
+                    )}
+                    {selectedTier.gating.exports.length > 0 && (
+                      <li className="text-xs text-muted-foreground flex items-start gap-2">
+                        <span className="text-primary mt-0.5">✓</span>
+                        <span>{selectedTier.gating.exports.map(e => e.toUpperCase()).join('/')} exports</span>
+                      </li>
+                    )}
+                    {selectedTier.gating.alerts.length > 0 && (
+                      <li className="text-xs text-muted-foreground flex items-start gap-2">
+                        <span className="text-primary mt-0.5">✓</span>
+                        <span>{selectedTier.gating.alerts.join(', ')} alerts</span>
+                      </li>
+                    )}
+                  </ul>
+                </div>
               </div>
 
               <Separator />
@@ -220,18 +384,20 @@ function CheckoutContent() {
               {/* Pricing Breakdown */}
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Subtotal</span>
-                  <span className="font-medium">{formatPrice(selectedPlan.price)}</span>
+                  <span className="text-muted-foreground">Monthly price</span>
+                  <span className="font-medium">{formatTierPrice(planId)}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Tax</span>
-                  <span className="font-medium">$0.00</span>
-                </div>
+                {selectedTier.pricing.yearly > 0 && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Annual option</span>
+                    <span className="text-green-600">{formatTierPrice(planId, 'yearly')}/yr (save 17%)</span>
+                  </div>
+                )}
                 <Separator />
                 <div className="flex justify-between">
-                  <span className="font-semibold">Monthly Total</span>
+                  <span className="font-semibold">Total today</span>
                   <span className="text-lg font-bold text-primary">
-                    {formatPrice(selectedPlan.price)}
+                    {formatTierPrice(planId)}
                   </span>
                 </div>
               </div>
@@ -239,8 +405,8 @@ function CheckoutContent() {
               {/* Billing Terms */}
               <div className="rounded-lg border border-border/60 bg-muted/30 p-3 text-xs text-muted-foreground space-y-1">
                 <p>✓ Cancel anytime</p>
-                <p>✓ No long-term commitment</p>
-                <p>✓ Secure payment</p>
+                <p>✓ 14-day money-back guarantee</p>
+                <p>✓ Secure payment processing</p>
               </div>
 
               {/* Current User Info */}

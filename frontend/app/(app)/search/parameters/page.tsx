@@ -1,16 +1,29 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Search, Calendar, MapPin, Thermometer, Filter } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Search, Calendar, MapPin, Thermometer, Filter, BookmarkPlus, Bookmark, Lock, Zap } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { useTier } from "@/hooks/useTier";
+import { toast } from "@/components/ui/use-toast";
+import { fetchSavedSearches, createSavedSearch, type SavedSearch } from "@/lib/api";
+import Link from "next/link";
 import dynamic from "next/dynamic";
 
 // Dynamically import map to avoid SSR issues with Leaflet
@@ -40,6 +53,8 @@ function getDateFromDayOfYear(dayOfYear: number, year: number = 2025): Date {
 }
 
 export default function ParametersSearchPage() {
+  const { tierDefinition } = useTier();
+  
   // Temperature range
   const [minTemp, setMinTemp] = useState<string>("");
   const [maxTemp, setMaxTemp] = useState<string>("");
@@ -53,6 +68,87 @@ export default function ParametersSearchPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [selectedDay, setSelectedDay] = useState<number>(1);
+
+  // Saved searches state
+  const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [searchName, setSearchName] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const limit = tierDefinition.gating.maxLocations;
+  const isAtLimit = limit !== "unlimited" && savedSearches.length >= limit;
+
+  // Load saved searches count
+  const loadSavedSearches = useCallback(async () => {
+    try {
+      const { searches } = await fetchSavedSearches();
+      setSavedSearches(searches);
+    } catch (error) {
+      console.error("Failed to load saved searches:", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadSavedSearches();
+  }, [loadSavedSearches]);
+
+  // Handle save search
+  const handleSaveSearch = async () => {
+    if (!searchName.trim()) {
+      toast({
+        title: "Name required",
+        description: "Please enter a name for this saved search",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (isAtLimit) {
+      toast({
+        title: "Limit reached",
+        description: `You've reached your saved search limit (${limit})`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSaving(true);
+    try {
+      // For parameter searches, we save with a special format
+      // Using the first result's location as the reference, or 0,0 if no results
+      const refLat = results.length > 0 ? results[0].location.lat : 0;
+      const refLon = results.length > 0 ? results[0].location.lon : 0;
+      
+      await createSavedSearch({
+        name: searchName.trim(),
+        location: `Temp: ${minTemp || "any"}°C - ${maxTemp || "any"}°C`,
+        lat: refLat,
+        lon: refLon,
+        displayName: `${format(startDate!, "MMM d")} - ${format(endDate!, "MMM d")}, ${minTemp || "any"}°C to ${maxTemp || "any"}°C`,
+        dayOfYear: getDayOfYearFromDate(startDate!),
+        resolution: "daily",
+        forecastType: "standard",
+      });
+
+      toast({
+        title: "Search saved!",
+        description: `"${searchName.trim()}" has been saved`,
+      });
+
+      setSearchName("");
+      setShowSaveDialog(false);
+      loadSavedSearches();
+    } catch (error) {
+      console.error("Error saving search:", error);
+      toast({
+        title: "Failed to save",
+        description: "An error occurred while saving your search",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleSearch = async () => {
     if (!minTemp && !maxTemp) {
@@ -249,10 +345,21 @@ export default function ParametersSearchPage() {
             <>
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <MapPin className="h-5 w-5 text-primary" />
-                    Matching Locations
-                  </CardTitle>
+                  <div className="flex items-start justify-between">
+                    <CardTitle className="flex items-center gap-2">
+                      <MapPin className="h-5 w-5 text-primary" />
+                      Matching Locations
+                    </CardTitle>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowSaveDialog(true)}
+                      className="gap-2"
+                    >
+                      <BookmarkPlus className="h-4 w-4" />
+                      Save Search
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
@@ -305,6 +412,109 @@ export default function ParametersSearchPage() {
           )}
         </div>
       </div>
+
+      {/* Save Search Dialog */}
+      <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Bookmark className="h-5 w-5 text-primary" />
+              Save Parameter Search
+            </DialogTitle>
+            <DialogDescription>
+              Save this search configuration for quick access later.
+            </DialogDescription>
+          </DialogHeader>
+
+          {isAtLimit ? (
+            <div className="space-y-4">
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Lock className="h-4 w-4 text-amber-600" />
+                  <span className="font-medium text-amber-600">Limit Reached</span>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  You've used all {limit} saved search slots on your {tierDefinition.name} plan.
+                </p>
+              </div>
+              <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-sm">Need more saved searches?</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Upgrade to save more searches
+                    </p>
+                  </div>
+                  <Button asChild size="sm" className="rounded-full">
+                    <Link href="/pricing">
+                      <Zap className="h-3.5 w-3.5 mr-1" />
+                      Upgrade
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4 py-2">
+              {/* Search preview */}
+              <div className="rounded-lg border border-border/60 bg-muted/30 p-3 space-y-2">
+                <div className="flex items-center gap-2 text-sm">
+                  <Thermometer className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-medium">
+                    {minTemp || "Any"}°C – {maxTemp || "Any"}°C
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Calendar className="h-4 w-4" />
+                  <span>
+                    {startDate ? format(startDate, "MMM d") : "Start"} – {endDate ? format(endDate, "MMM d") : "End"}, 2025
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  <Badge variant="outline" className="text-xs">
+                    {results.length} locations found
+                  </Badge>
+                </div>
+              </div>
+
+              {/* Name input */}
+              <div className="space-y-2">
+                <Label htmlFor="search-name">Search name</Label>
+                <Input
+                  id="search-name"
+                  placeholder="e.g., Summer vacation spots"
+                  value={searchName}
+                  onChange={(e) => setSearchName(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSaveSearch()}
+                  autoFocus
+                />
+              </div>
+
+              {/* Usage indicator */}
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>Saved searches</span>
+                <span className={cn(
+                  "font-medium",
+                  limit !== "unlimited" && savedSearches.length >= (limit as number) - 1 && "text-amber-600"
+                )}>
+                  {savedSearches.length} / {limit === "unlimited" ? "∞" : limit}
+                </span>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSaveDialog(false)}>
+              Cancel
+            </Button>
+            {!isAtLimit && (
+              <Button onClick={handleSaveSearch} disabled={saving || !searchName.trim()}>
+                {saving ? "Saving..." : "Save Search"}
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

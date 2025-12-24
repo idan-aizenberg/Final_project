@@ -292,3 +292,205 @@ export async function fetchUsage(): Promise<UsageSummary> {
   await sleep(latency.short);
   return usage;
 }
+
+// ==================== Saved Searches ====================
+// Uses Supabase when configured, otherwise falls back to in-memory storage
+
+import {
+  fetchSavedSearchesFromDB,
+  createSavedSearchInDB,
+  updateSavedSearchInDB,
+  deleteSavedSearchFromDB,
+  markSearchAsUsedInDB,
+  type SavedSearch as DbSavedSearch,
+} from "./savedSearchesService";
+
+export interface SavedSearch {
+  id: string;
+  name: string;
+  location: string;
+  lat: number;
+  lon: number;
+  displayName?: string;
+  dayOfYear?: number;
+  resolution: "daily" | "weekly" | "monthly";
+  forecastType: "standard" | "probabilistic" | "extreme";
+  isFavorite: boolean;
+  lastUsedAt?: string;
+  createdAt: string;
+}
+
+// Check if Supabase is properly configured
+const isSupabaseConfigured = () => {
+  return (
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+    process.env.NEXT_PUBLIC_SUPABASE_URL !== "https://placeholder.supabase.co" &&
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY &&
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY !== "placeholder-key"
+  );
+};
+
+// Transform DB record to frontend format
+function transformDbToFrontend(dbSearch: DbSavedSearch): SavedSearch {
+  return {
+    id: dbSearch.id,
+    name: dbSearch.name,
+    location: dbSearch.location,
+    lat: dbSearch.lat,
+    lon: dbSearch.lon,
+    displayName: dbSearch.display_name,
+    dayOfYear: dbSearch.day_of_year,
+    resolution: dbSearch.resolution,
+    forecastType: dbSearch.forecast_type,
+    isFavorite: dbSearch.is_favorite,
+    lastUsedAt: dbSearch.last_used_at,
+    createdAt: dbSearch.created_at,
+  };
+}
+
+// LocalStorage key for fallback storage
+const SAVED_SEARCHES_KEY = "weathersight_saved_searches";
+
+// Helper to load saved searches from localStorage
+function loadSavedSearchesFromStorage(): SavedSearch[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const stored = localStorage.getItem(SAVED_SEARCHES_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+}
+
+// Helper to save searches to localStorage
+function saveSavedSearchesToStorage(searches: SavedSearch[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(SAVED_SEARCHES_KEY, JSON.stringify(searches));
+  } catch (error) {
+    console.warn("Failed to save to localStorage:", error);
+  }
+}
+
+export async function fetchSavedSearches(): Promise<{ searches: SavedSearch[]; count: number }> {
+  // Try Supabase first if configured
+  if (isSupabaseConfigured()) {
+    try {
+      const result = await fetchSavedSearchesFromDB();
+      return {
+        searches: result.searches.map(transformDbToFrontend),
+        count: result.count,
+      };
+    } catch (error) {
+      console.warn("Supabase fetch failed, falling back to localStorage:", error);
+    }
+  }
+
+  // Fallback to localStorage
+  await sleep(latency.short);
+  const savedSearchesMock = loadSavedSearchesFromStorage();
+  const sorted = [...savedSearchesMock].sort((a, b) => {
+    if (a.isFavorite !== b.isFavorite) return a.isFavorite ? -1 : 1;
+    const aTime = a.lastUsedAt || a.createdAt;
+    const bTime = b.lastUsedAt || b.createdAt;
+    return new Date(bTime).getTime() - new Date(aTime).getTime();
+  });
+  return { searches: sorted, count: sorted.length };
+}
+
+export async function createSavedSearch(
+  input: Omit<SavedSearch, "id" | "createdAt" | "isFavorite" | "lastUsedAt">
+): Promise<SavedSearch> {
+  // Try Supabase first if configured
+  if (isSupabaseConfigured()) {
+    try {
+      const result = await createSavedSearchInDB({
+        name: input.name,
+        location: input.location,
+        lat: input.lat,
+        lon: input.lon,
+        displayName: input.displayName,
+        dayOfYear: input.dayOfYear,
+        resolution: input.resolution,
+        forecastType: input.forecastType,
+      });
+      return transformDbToFrontend(result);
+    } catch (error) {
+      console.warn("Supabase create failed, falling back to localStorage:", error);
+    }
+  }
+
+  // Fallback to localStorage
+  await sleep(latency.short);
+  const newSearch: SavedSearch = {
+    ...input,
+    id: `saved-${Date.now()}`,
+    isFavorite: false,
+    createdAt: new Date().toISOString(),
+  };
+  const existing = loadSavedSearchesFromStorage();
+  saveSavedSearchesToStorage([newSearch, ...existing]);
+  return newSearch;
+}
+
+export async function updateSavedSearch(
+  id: string,
+  updates: Partial<Pick<SavedSearch, "name" | "isFavorite" | "lastUsedAt">>
+): Promise<SavedSearch | null> {
+  // Try Supabase first if configured
+  if (isSupabaseConfigured()) {
+    try {
+      const result = await updateSavedSearchInDB(id, {
+        name: updates.name,
+        isFavorite: updates.isFavorite,
+        lastUsedAt: updates.lastUsedAt,
+      });
+      return transformDbToFrontend(result);
+    } catch (error) {
+      console.warn("Supabase update failed, falling back to localStorage:", error);
+    }
+  }
+
+  // Fallback to localStorage
+  await sleep(latency.short);
+  const existing = loadSavedSearchesFromStorage();
+  const index = existing.findIndex((s) => s.id === id);
+  if (index === -1) return null;
+  existing[index] = { ...existing[index], ...updates };
+  saveSavedSearchesToStorage(existing);
+  return existing[index];
+}
+
+export async function deleteSavedSearch(id: string): Promise<boolean> {
+  // Try Supabase first if configured
+  if (isSupabaseConfigured()) {
+    try {
+      return await deleteSavedSearchFromDB(id);
+    } catch (error) {
+      console.warn("Supabase delete failed, falling back to localStorage:", error);
+    }
+  }
+
+  // Fallback to localStorage
+  await sleep(latency.short);
+  const existing = loadSavedSearchesFromStorage();
+  const filtered = existing.filter((s) => s.id !== id);
+  if (filtered.length === existing.length) return false;
+  saveSavedSearchesToStorage(filtered);
+  return true;
+}
+
+export async function markSearchAsUsed(id: string): Promise<SavedSearch | null> {
+  // Try Supabase first if configured
+  if (isSupabaseConfigured()) {
+    try {
+      const result = await markSearchAsUsedInDB(id);
+      return transformDbToFrontend(result);
+    } catch (error) {
+      console.warn("Supabase mark as used failed, falling back to mock:", error);
+    }
+  }
+
+  // Fallback
+  return updateSavedSearch(id, { lastUsedAt: new Date().toISOString() });
+}

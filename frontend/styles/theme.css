@@ -1,7 +1,7 @@
 :root {
   --elevation-low: 0 10px 25px -20px rgba(15, 23, 42, 0.25);
   --elevation-medium: 0 18px 45px -24px rgba(15, 23, 42, 0.3);
-  --grid-line: hsla(217, 23%, 35%, 0.12);
+  --grid-line: hsla(217, 23%, 35%, 0.22);
 }
 
 .dark {

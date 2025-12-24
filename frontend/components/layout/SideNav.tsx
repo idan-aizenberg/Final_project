@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { AlertTriangle, BarChart3, BellDot, Gauge, Home, MapPinned, Settings, ShieldCheck } from "lucide-react";
+import { AlertTriangle, BarChart3, BellDot, Bookmark, Gauge, Home, MapPinned, Settings, ShieldCheck } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { SearchTypeDialog } from "@/components/shared/SearchTypeDialog";
@@ -13,6 +13,7 @@ import { useTier } from "@/hooks/useTier";
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
   { href: "/search", label: "Search", icon: MapPinned },
+  { href: "/saved-searches", label: "Saved Searches", icon: Bookmark },
   { href: "/results", label: "Results", icon: BarChart3 },
   { href: "/alerts", label: "Alerts", icon: BellDot },
   { href: "/pricing", label: "Pricing", icon: Gauge },

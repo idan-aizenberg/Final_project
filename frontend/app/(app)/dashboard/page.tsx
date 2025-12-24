@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, Clock3, FolderPlus, MapPinned, Crown, Zap, Shield } from "lucide-react";
+import { ArrowRight, Clock3, FolderPlus, MapPinned, Crown, Zap, Shield, Bookmark, Star } from "lucide-react";
 
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -12,27 +12,35 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { EmptyState } from "@/components/shared/EmptyState";
 import { MetricCard } from "@/components/shared/MetricCard";
 import { SearchTypeDialog } from "@/components/shared/SearchTypeDialog";
-import { fetchRecentSearches, fetchUsage } from "@/lib/api";
+import { fetchRecentSearches, fetchSavedSearches } from "@/lib/api";
 import { formatDateRange } from "@/lib/format";
-import { tiers } from "@/lib/tiers";
 import { useAuth } from "@/context/AuthContext";
+import { useTier } from "@/hooks/useTier";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import type { TierId } from "@/lib/tiers";
 
 export default function DashboardPage() {
   const router = useRouter();
   const { userProfile } = useAuth();
-  const tier = userProfile?.subscription_tier || 'basic';
+  const { 
+    tier, 
+    tierDefinition, 
+    queriesUsedToday, 
+    queriesRemaining,
+    canAccessFeature 
+  } = useTier();
   const [searchDialogOpen, setSearchDialogOpen] = useState(false);
 
   const recentSearches = useQuery({ queryKey: ["recent-searches"], queryFn: fetchRecentSearches });
-  const usage = useQuery({ queryKey: ["usage"], queryFn: fetchUsage });
+  const savedSearchesQuery = useQuery({ queryKey: ["saved-searches"], queryFn: fetchSavedSearches });
 
-  const tierDefinition = tiers[tier];
-  const remaining = tierDefinition.queriesPerDay === "unlimited" ? Infinity : tierDefinition.queriesPerDay - (usage.data?.usedToday ?? 0);
+  const savedSearches = savedSearchesQuery.data?.searches || [];
+  const savedSearchLimit = tierDefinition.gating.maxLocations;
+  const savedSearchLimitDisplay = savedSearchLimit === "unlimited" ? "∞" : savedSearchLimit;
 
-  const getTierIcon = (tier: string) => {
-    switch (tier) {
+  const getTierIcon = (tierId: TierId) => {
+    switch (tierId) {
       case 'professional':
         return <Crown className="h-5 w-5 text-purple-500" />;
       case 'enterprise':
@@ -44,8 +52,8 @@ export default function DashboardPage() {
     }
   };
 
-  const getTierColor = (tier: string) => {
-    switch (tier) {
+  const getTierColor = (tierId: TierId) => {
+    switch (tierId) {
       case 'professional':
         return 'bg-purple-500/10 text-purple-600 border-purple-500/30';
       case 'enterprise':
@@ -56,6 +64,15 @@ export default function DashboardPage() {
         return 'bg-primary/10 text-primary border-primary/30';
     }
   };
+
+  // Calculate remaining queries display
+  const remainingDisplay = queriesRemaining === "unlimited" 
+    ? "Unlimited" 
+    : `${queriesRemaining}`;
+  
+  const limitDisplay = tierDefinition.queriesPerDay === "unlimited"
+    ? "∞"
+    : tierDefinition.queriesPerDay;
 
   return (
     <div className="space-y-10">
@@ -77,7 +94,7 @@ export default function DashboardPage() {
         }
       />
 
-      <section className="grid gap-4 md:grid-cols-3">
+      <section className="grid gap-4 md:grid-cols-4">
         <MetricCard
           label="Subscription Tier"
           primaryValue={tierDefinition.name}
@@ -89,23 +106,101 @@ export default function DashboardPage() {
         />
         <MetricCard
           label="Queries remaining"
-          primaryValue={tierDefinition.queriesPerDay === "unlimited" ? "Unlimited" : `${Math.max(remaining, 0)}`}
+          primaryValue={remainingDisplay}
           deltaLabel="Used today"
-          deltaValue={`${usage.data?.usedToday ?? 0}`}
-          trend={remaining > 5 || tierDefinition.queriesPerDay === "unlimited" ? "steady" : "down"}
+          deltaValue={`${queriesUsedToday} / ${limitDisplay}`}
+          trend={
+            queriesRemaining === "unlimited" 
+              ? "steady" 
+              : (queriesRemaining as number) > 5 
+                ? "steady" 
+                : "down"
+          }
           footer="Resets at local midnight."
           icon={<Clock3 className="h-5 w-5 text-amber-500" aria-hidden />}
         />
         <MetricCard
+          label="Saved searches"
+          primaryValue={`${savedSearches.length}`}
+          deltaLabel="Limit"
+          deltaValue={`${savedSearches.length} / ${savedSearchLimitDisplay}`}
+          trend={
+            savedSearchLimit === "unlimited" 
+              ? "steady" 
+              : savedSearches.length >= (savedSearchLimit as number) 
+                ? "down" 
+                : "steady"
+          }
+          footer="Quick access to your frequent locations."
+          icon={<Bookmark className="h-5 w-5 text-indigo-500" aria-hidden />}
+        />
+        <MetricCard
           label="Automation"
-          primaryValue={tierDefinition.gating.alerts.length > 0 ? "Alerts enabled" : "Alerts locked"}
-          deltaLabel={tierDefinition.gating.alerts.length > 0 ? "Channels" : "Available in"}
-          deltaValue={tierDefinition.gating.alerts.length > 0 ? tierDefinition.gating.alerts.join(", ") : "Professional"}
-          trend={tierDefinition.gating.alerts.length > 0 ? "up" : "steady"}
+          primaryValue={canAccessFeature("alerts") ? "Alerts enabled" : "Alerts locked"}
+          deltaLabel={canAccessFeature("alerts") ? "Channels" : "Available in"}
+          deltaValue={canAccessFeature("alerts") ? tierDefinition.gating.alerts.join(", ") : "Professional"}
+          trend={canAccessFeature("alerts") ? "up" : "steady"}
           footer="Configure alert thresholds straight from results."
           icon={<MapPinned className="h-5 w-5 text-emerald-500" aria-hidden />}
         />
       </section>
+
+      {/* Saved Searches Section */}
+      {savedSearches.length > 0 && (
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">Saved searches</h2>
+              <p className="text-sm text-muted-foreground">Quick access to your favorite locations and search configurations.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" className="rounded-full" onClick={() => savedSearchesQuery.refetch()}>
+                Refresh
+              </Button>
+              <Button variant="outline" className="rounded-full" asChild>
+                <Link href="/search">
+                  <Bookmark className="h-4 w-4 mr-2" />
+                  Manage
+                </Link>
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-4">
+            {savedSearches.slice(0, 8).map((search) => (
+              <Card key={search.id} className="group rounded-2xl border border-border/60 bg-background/70 p-4 hover:border-primary/40 transition-colors cursor-pointer" onClick={() => router.push(`/search`)}>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      {search.isFavorite && (
+                        <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-500 flex-shrink-0" />
+                      )}
+                      <h3 className="font-medium text-sm truncate">{search.name}</h3>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1 truncate">{search.location}</p>
+                    {search.dayOfYear && (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Day {search.dayOfYear}
+                      </p>
+                    )}
+                  </div>
+                  <Badge variant="outline" className="text-[10px] flex-shrink-0">
+                    {search.forecastType}
+                  </Badge>
+                </div>
+              </Card>
+            ))}
+          </div>
+
+          {savedSearches.length > 8 && (
+            <div className="text-center">
+              <Button variant="link" asChild className="text-xs">
+                <Link href="/search">View all {savedSearches.length} saved searches</Link>
+              </Button>
+            </div>
+          )}
+        </section>
+      )}
 
       <section className="space-y-4">
         <div className="flex items-center justify-between">
@@ -173,7 +268,7 @@ export default function DashboardPage() {
                   Unlock More with Standard
                 </CardTitle>
                 <CardDescription className="mt-2">
-                  Get 50 queries per day, 14-day forecasts, and advanced export options
+                  Get 50 queries per day, 30-day forecasts, and probabilistic insights
                 </CardDescription>
               </div>
               <Button variant="default" className="rounded-full" asChild>
@@ -194,7 +289,7 @@ export default function DashboardPage() {
                   Go Professional for Advanced Features
                 </CardTitle>
                 <CardDescription className="mt-2">
-                  Unlock unlimited queries, 30-day forecasts, real-time alerts, and priority support
+                  Unlock 200 queries/day, 180-day forecasts, exports, and email alerts
                 </CardDescription>
               </div>
               <Button variant="default" className="rounded-full" asChild>
