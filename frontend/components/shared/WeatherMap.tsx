@@ -26,6 +26,7 @@ interface GridPointWithTemp {
   lat: number;
   lon: number;
   temperature: number;
+  maxTemperature?: number;
 }
 
 interface TempRange {
@@ -196,7 +197,10 @@ export function WeatherMap({
               <Popup>
                 <div className="text-sm space-y-1">
                   <div className="font-semibold">Grid {point.gridIndex}</div>
-                  <div>Temperature: {point.temperature.toFixed(1)}°C</div>
+                  <div>Avg Temp: {point.temperature.toFixed(1)}°C</div>
+                  {point.maxTemperature !== undefined && (
+                    <div className="text-orange-600">Max Temp: {point.maxTemperature.toFixed(1)}°C</div>
+                  )}
                   <div className="text-xs text-gray-500">
                     {point.lat.toFixed(2)}°, {point.lon.toFixed(2)}°
                   </div>

@@ -11,10 +11,12 @@ export async function GET(request: Request) {
     const endDay = parseInt(searchParams.get('endDay') || '365');
     const minTemp = searchParams.get('minTemp');
     const maxTemp = searchParams.get('maxTemp');
+    const minMaxTemp = searchParams.get('minMaxTemp');
+    const maxMaxTemp = searchParams.get('maxMaxTemp');
 
-    if (!minTemp && !maxTemp) {
+    if (!minTemp && !maxTemp && !minMaxTemp && !maxMaxTemp) {
       return NextResponse.json(
-        { error: 'At least minTemp or maxTemp is required' },
+        { error: 'At least one temperature parameter is required' },
         { status: 400 }
       );
     }
@@ -24,7 +26,7 @@ export async function GET(request: Request) {
     // Build query for forecasts within date range and temperature range
     let query = supabase
       .from('weather_forecasts')
-      .select('grid_index, day_of_year, avg_temperature')
+      .select('grid_index, day_of_year, avg_temperature, max_temperature')
       .gte('day_of_year', startDay)
       .lte('day_of_year', endDay);
 
@@ -34,6 +36,14 @@ export async function GET(request: Request) {
 
     if (maxTemp) {
       query = query.lte('avg_temperature', parseFloat(maxTemp));
+    }
+
+    if (minMaxTemp) {
+      query = query.gte('max_temperature', parseFloat(minMaxTemp));
+    }
+
+    if (maxMaxTemp) {
+      query = query.lte('max_temperature', parseFloat(maxMaxTemp));
     }
 
     const { data: forecasts, error: forecastError } = await query;
@@ -54,12 +64,13 @@ export async function GET(request: Request) {
     }
 
     // Group by grid_index and get unique locations
-    const gridIndexMap = new Map<number, { temp: number; day: number }>();
+    const gridIndexMap = new Map<number, { avgTemp: number; maxTemp: number; day: number }>();
     
     forecasts.forEach((forecast) => {
       if (!gridIndexMap.has(forecast.grid_index)) {
         gridIndexMap.set(forecast.grid_index, {
-          temp: forecast.avg_temperature,
+          avgTemp: forecast.avg_temperature,
+          maxTemp: forecast.max_temperature,
           day: forecast.day_of_year,
         });
       }
@@ -98,7 +109,8 @@ export async function GET(request: Request) {
           lat: grid.latitude,
           lon: grid.longitude,
         },
-        temperature: forecastData?.temp || 0,
+        temperature: forecastData?.avgTemp || 0,
+        maxTemperature: forecastData?.maxTemp,
         dayOfYear: forecastData?.day || startDay,
       };
     });
@@ -107,7 +119,7 @@ export async function GET(request: Request) {
       locations,
       count: locations.length,
       dateRange: { startDay, endDay },
-      tempRange: { min: minTemp, max: maxTemp },
+      tempRange: { minAvg: minTemp, maxAvg: maxTemp, minMax: minMaxTemp, maxMax: maxMaxTemp },
     });
   } catch (error: any) {
     console.error('Error in parameters search:', error);

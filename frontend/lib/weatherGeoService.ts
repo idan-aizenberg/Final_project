@@ -18,6 +18,7 @@ interface WeatherResult {
   location: { lat: number; lon: number };
   distance: number;
   temperature: number;
+  maxTemperature?: number;
   dayOfYear: number;
   nearestPointDistance: number;
 }
@@ -233,7 +234,7 @@ export class WeatherGeoService {
     // Query forecast data for this grid point and day
     const { data: forecastData, error } = await this.supabase
       .from('weather_forecasts')
-      .select('avg_temperature')
+      .select('avg_temperature, max_temperature')
       .eq('grid_index', gridIndex)
       .eq('day_of_year', dayOfYear)
       .single();
@@ -253,6 +254,7 @@ export class WeatherGeoService {
       },
       distance: actualDistance,
       temperature: forecastData.avg_temperature,
+      maxTemperature: forecastData.max_temperature,
       dayOfYear,
       nearestPointDistance: actualDistance,
     };
@@ -276,7 +278,7 @@ export class WeatherGeoService {
 
     const { data: forecastData, error } = await this.supabase
       .from('weather_forecasts')
-      .select('avg_temperature')
+      .select('avg_temperature, max_temperature')
       .eq('grid_index', gridIndex)
       .eq('day_of_year', dayOfYear)
       .single();
@@ -293,6 +295,7 @@ export class WeatherGeoService {
       },
       distance: 0,
       temperature: forecastData.avg_temperature,
+      maxTemperature: forecastData.max_temperature,
       dayOfYear,
       nearestPointDistance: 0,
     };

@@ -31,6 +31,7 @@ interface WeatherData {
   location: { lat: number; lon: number };
   distance: number;
   temperature: number;
+  maxTemperature?: number;
   dayOfYear: number;
   cityName?: string;
   displayName?: string;
@@ -508,10 +509,19 @@ export default function SearchPage() {
                   <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
                     <div className="flex items-center gap-2 mb-2">
                       <Thermometer className="h-4 w-4 text-primary" />
-                      <p className="text-sm text-muted-foreground">Temperature</p>
+                      <p className="text-sm text-muted-foreground">Avg Temperature</p>
                     </div>
                     <p className="text-3xl font-bold text-primary">
                       {weatherData.temperature.toFixed(1)}°C
+                    </p>
+                  </div>
+                  <div className="p-4 rounded-lg bg-orange-500/10 border border-orange-500/20">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Thermometer className="h-4 w-4 text-orange-500" />
+                      <p className="text-sm text-muted-foreground">Max Temperature</p>
+                    </div>
+                    <p className="text-3xl font-bold text-orange-500">
+                      {weatherData.maxTemperature ? weatherData.maxTemperature.toFixed(1) : '--'}°C
                     </p>
                   </div>
                   <div className="p-4 rounded-lg bg-muted/50">
@@ -529,6 +539,8 @@ export default function SearchPage() {
                     </div>
                     <p className="text-xl font-semibold">{weatherData.gridIndex}</p>
                   </div>
+                </div>
+                <div className="grid grid-cols-1 gap-4 mt-4">
                   <div className="p-4 rounded-lg bg-muted/50">
                     <div className="flex items-center gap-2 mb-2">
                       <MapPin className="h-4 w-4 text-muted-foreground" />

@@ -12,6 +12,7 @@ interface ForecastRecord {
   grid_index: number;
   day_of_year: number;
   avg_temperature: number;
+  max_temperature?: number;
   forecast_year: number;
 }
 
@@ -169,6 +170,74 @@ export class WeatherDataLoader {
   }
 
   /**
+   * Load max temperature forecast data from CSV file and update existing records
+   * Each row = day of year, each column = grid index
+   */
+  async loadMaxForecastData(
+    filePath: string,
+    gridMap: Map<number, { lon: number; lat: number }>
+  ): Promise<number> {
+    console.log('Loading max temperature forecast data from:', filePath);
+    const fileStream = fs.createReadStream(filePath);
+    const rl = readline.createInterface({
+      input: fileStream,
+      crlfDelay: Infinity,
+    });
+
+    const updateRecords: { grid_index: number; day_of_year: number; max_temperature: number; forecast_year: number }[] = [];
+    let dayOfYear = 1;
+    let lastDayData: number[] = [];
+
+    for await (const line of rl) {
+      if (!line.trim()) continue;
+
+      // Split by comma (CSV format)
+      const values = line.trim().split(',');
+
+      // Store last day data for filling missing days
+      lastDayData = values.map(v => parseFloat(v));
+
+      // Create update records for each grid point
+      const gridIndices = Array.from(gridMap.keys()).sort((a, b) => a - b);
+
+      for (let i = 0; i < values.length && i < gridIndices.length; i++) {
+        const temperature = parseFloat(values[i]);
+        if (isNaN(temperature)) continue;
+
+        updateRecords.push({
+          grid_index: gridIndices[i],
+          day_of_year: dayOfYear,
+          max_temperature: temperature,
+          forecast_year: 2025,
+        });
+
+        // Batch update every 5000 records
+        if (updateRecords.length >= 5000) {
+          await this.updateMaxTemperatureBatch(updateRecords);
+          updateRecords.length = 0;
+        }
+      }
+
+      dayOfYear++;
+    }
+
+    // Update remaining records
+    if (updateRecords.length > 0) {
+      await this.updateMaxTemperatureBatch(updateRecords);
+    }
+
+    const lastDay = dayOfYear - 1;
+    console.log(`Loaded ${lastDay} days of max temperature forecast data`);
+
+    // Fill missing days if needed
+    if (lastDay < 365) {
+      await this.fillMissingMaxDays(lastDayData, lastDay, gridMap);
+    }
+
+    return lastDay;
+  }
+
+  /**
    * Batch insert forecast records
    */
   private async insertForecastBatch(records: ForecastRecord[]): Promise<void> {
@@ -182,6 +251,22 @@ export class WeatherDataLoader {
     }
 
     console.log(`Inserted ${records.length} forecast records`);
+  }
+
+  /**
+   * Batch update max temperature for existing forecast records
+   */
+  private async updateMaxTemperatureBatch(records: { grid_index: number; day_of_year: number; max_temperature: number; forecast_year: number }[]): Promise<void> {
+    const { error } = await this.supabase
+      .from('weather_forecasts')
+      .upsert(records, { onConflict: 'grid_index,day_of_year,forecast_year' });
+
+    if (error) {
+      console.error('Error updating max temperature batch:', error);
+      throw error;
+    }
+
+    console.log(`Updated ${records.length} records with max temperature`);
   }
 
   /**
@@ -223,6 +308,47 @@ export class WeatherDataLoader {
     }
 
     console.log(`Filled ${365 - lastDay} missing days`);
+  }
+
+  /**
+   * Fill missing days for max temperature with last available day's data
+   */
+  async fillMissingMaxDays(
+    lastDayData: number[],
+    lastDay: number,
+    gridMap: Map<number, { lon: number; lat: number }>
+  ): Promise<void> {
+    console.log(`Filling missing max temperature days from ${lastDay + 1} to 365...`);
+
+    const gridIndices = Array.from(gridMap.keys()).sort((a, b) => a - b);
+    const updateRecords: { grid_index: number; day_of_year: number; max_temperature: number; forecast_year: number }[] = [];
+
+    for (let day = lastDay + 1; day <= 365; day++) {
+      for (let i = 0; i < lastDayData.length && i < gridIndices.length; i++) {
+        const temperature = lastDayData[i];
+        if (isNaN(temperature)) continue;
+
+        updateRecords.push({
+          grid_index: gridIndices[i],
+          day_of_year: day,
+          max_temperature: temperature,
+          forecast_year: 2025,
+        });
+
+        // Batch update every 5000 records
+        if (updateRecords.length >= 5000) {
+          await this.updateMaxTemperatureBatch(updateRecords);
+          updateRecords.length = 0;
+        }
+      }
+    }
+
+    // Update remaining records
+    if (updateRecords.length > 0) {
+      await this.updateMaxTemperatureBatch(updateRecords);
+    }
+
+    console.log(`Filled ${365 - lastDay} missing max temperature days`);
   }
 }
 

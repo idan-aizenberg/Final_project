@@ -38,7 +38,7 @@ export async function GET(request: Request) {
         grid_index,
         latitude,
         longitude,
-        weather_forecasts!inner(avg_temperature)
+        weather_forecasts!inner(avg_temperature, max_temperature)
       `
       )
       .eq('weather_forecasts.day_of_year', day);
@@ -68,6 +68,7 @@ export async function GET(request: Request) {
       lat: point.latitude,
       lon: point.longitude,
       temperature: point.weather_forecasts[0]?.avg_temperature || 0,
+      maxTemperature: point.weather_forecasts[0]?.max_temperature,
     })) || [];
 
     // If sampling is requested, take every 10th point

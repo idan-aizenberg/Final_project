@@ -36,6 +36,7 @@ interface LocationResult {
   gridIndex: number;
   location: { lat: number; lon: number };
   temperature: number;
+  maxTemperature?: number;
   dayOfYear: number;
 }
 
@@ -55,9 +56,13 @@ function getDateFromDayOfYear(dayOfYear: number, year: number = 2025): Date {
 export default function ParametersSearchPage() {
   const { tierDefinition } = useTier();
   
-  // Temperature range
+  // Temperature range (average)
   const [minTemp, setMinTemp] = useState<string>("");
   const [maxTemp, setMaxTemp] = useState<string>("");
+
+  // Max temperature range
+  const [minMaxTemp, setMinMaxTemp] = useState<string>("");
+  const [maxMaxTemp, setMaxMaxTemp] = useState<string>("");
 
   // Date range
   const [startDate, setStartDate] = useState<Date | undefined>(new Date(2025, 0, 1));
@@ -151,8 +156,8 @@ export default function ParametersSearchPage() {
   };
 
   const handleSearch = async () => {
-    if (!minTemp && !maxTemp) {
-      setError("Please enter at least a minimum or maximum temperature");
+    if (!minTemp && !maxTemp && !minMaxTemp && !maxMaxTemp) {
+      setError("Please enter at least one temperature parameter");
       return;
     }
 
@@ -174,6 +179,8 @@ export default function ParametersSearchPage() {
         endDay: endDay.toString(),
         ...(minTemp && { minTemp }),
         ...(maxTemp && { maxTemp }),
+        ...(minMaxTemp && { minMaxTemp }),
+        ...(maxMaxTemp && { maxMaxTemp }),
       });
 
       const response = await fetch(`/api/weather/parameters?${queryParams}`);
@@ -214,16 +221,16 @@ export default function ParametersSearchPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Temperature Range */}
+              {/* Average Temperature Range */}
               <div className="space-y-4">
                 <Label className="text-base font-semibold flex items-center gap-2">
-                  <Thermometer className="h-4 w-4" />
-                  Temperature Range (°C)
+                  <Thermometer className="h-4 w-4 text-primary" />
+                  Average Temperature Range (°C)
                 </Label>
                 <div className="flex flex-col sm:flex-row gap-4">
                   <div className="flex-1 space-y-2">
                     <Label htmlFor="minTemp" className="text-sm text-muted-foreground">
-                      Minimum Temperature
+                      Minimum Avg Temp
                     </Label>
                     <Input
                       id="minTemp"
@@ -236,7 +243,7 @@ export default function ParametersSearchPage() {
                   </div>
                   <div className="flex-1 space-y-2">
                     <Label htmlFor="maxTemp" className="text-sm text-muted-foreground">
-                      Maximum Temperature
+                      Maximum Avg Temp
                     </Label>
                     <Input
                       id="maxTemp"
@@ -244,6 +251,42 @@ export default function ParametersSearchPage() {
                       placeholder="e.g., 25"
                       value={maxTemp}
                       onChange={(e) => setMaxTemp(e.target.value)}
+                      disabled={loading}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Max Temperature Range */}
+              <div className="space-y-4">
+                <Label className="text-base font-semibold flex items-center gap-2">
+                  <Thermometer className="h-4 w-4 text-orange-500" />
+                  Maximum Temperature Range (°C)
+                </Label>
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <div className="flex-1 space-y-2">
+                    <Label htmlFor="minMaxTemp" className="text-sm text-muted-foreground">
+                      Minimum Max Temp
+                    </Label>
+                    <Input
+                      id="minMaxTemp"
+                      type="number"
+                      placeholder="e.g., 20"
+                      value={minMaxTemp}
+                      onChange={(e) => setMinMaxTemp(e.target.value)}
+                      disabled={loading}
+                    />
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <Label htmlFor="maxMaxTemp" className="text-sm text-muted-foreground">
+                      Maximum Max Temp
+                    </Label>
+                    <Input
+                      id="maxMaxTemp"
+                      type="number"
+                      placeholder="e.g., 35"
+                      value={maxMaxTemp}
+                      onChange={(e) => setMaxMaxTemp(e.target.value)}
                       disabled={loading}
                     />
                   </div>
@@ -373,9 +416,16 @@ export default function ParametersSearchPage() {
                           className="p-3 rounded-lg bg-muted/50 border border-border"
                         >
                           <p className="text-xs text-muted-foreground">Grid {result.gridIndex}</p>
-                          <p className="text-sm font-semibold">
-                            {result.temperature.toFixed(1)}°C
-                          </p>
+                          <div className="flex gap-2 items-center">
+                            <p className="text-sm font-semibold text-primary">
+                              Avg: {result.temperature.toFixed(1)}°C
+                            </p>
+                            {result.maxTemperature && (
+                              <p className="text-sm font-semibold text-orange-500">
+                                Max: {result.maxTemperature.toFixed(1)}°C
+                              </p>
+                            )}
+                          </div>
                           <p className="text-xs text-muted-foreground">
                             {result.location.lat.toFixed(2)}°, {result.location.lon.toFixed(2)}°
                           </p>
