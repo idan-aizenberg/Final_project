@@ -16,7 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Search, Calendar, MapPin, Thermometer, Filter, BookmarkPlus, Bookmark, Lock, Zap } from "lucide-react";
+import { Search, Calendar, MapPin, Thermometer, Filter, BookmarkPlus, Bookmark, Lock, Zap, Snowflake, Sun } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -37,6 +37,10 @@ interface LocationResult {
   location: { lat: number; lon: number };
   temperature: number;
   maxTemperature?: number;
+  minTemperature?: number;
+  precipitationSum?: number;
+  snowfallAmount?: number;
+  solarRadiation?: number;
   dayOfYear: number;
 }
 
@@ -416,13 +420,35 @@ export default function ParametersSearchPage() {
                           className="p-3 rounded-lg bg-muted/50 border border-border"
                         >
                           <p className="text-xs text-muted-foreground">Grid {result.gridIndex}</p>
-                          <div className="flex gap-2 items-center">
+                          <div className="flex flex-wrap gap-2 items-center">
                             <p className="text-sm font-semibold text-primary">
                               Avg: {result.temperature.toFixed(1)}°C
                             </p>
                             {result.maxTemperature && (
                               <p className="text-sm font-semibold text-orange-500">
                                 Max: {result.maxTemperature.toFixed(1)}°C
+                              </p>
+                            )}
+                            {result.minTemperature && (
+                              <p className="text-sm font-semibold text-sky-500">
+                                Min: {result.minTemperature.toFixed(1)}°C
+                              </p>
+                            )}
+                            {result.precipitationSum !== undefined && (
+                              <p className="text-sm font-semibold text-blue-500">
+                                Rain: {result.precipitationSum.toFixed(2)} mm
+                              </p>
+                            )}
+                            {result.snowfallAmount !== undefined && (
+                              <p className="text-sm font-semibold text-indigo-500 flex items-center gap-1">
+                                <Snowflake className="h-3.5 w-3.5" />
+                                Snow: {result.snowfallAmount.toFixed(2)} mm
+                              </p>
+                            )}
+                            {result.solarRadiation !== undefined && (
+                              <p className="text-sm font-semibold text-amber-500 flex items-center gap-1">
+                                <Sun className="h-3.5 w-3.5" />
+                                Solar: {result.solarRadiation.toFixed(1)}
                               </p>
                             )}
                           </div>
@@ -568,4 +594,3 @@ export default function ParametersSearchPage() {
     </div>
   );
 }
-

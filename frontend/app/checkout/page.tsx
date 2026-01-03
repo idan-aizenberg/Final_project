@@ -71,10 +71,10 @@ function CheckoutContent() {
               </>
             ) : (
               <>
-                <p className="text-sm text-destructive mb-4">The subscription plan you selected is not available.</p>
-                <Link href="/pricing">
-                  <Button variant="outline">Back to Pricing</Button>
-                </Link>
+            <p className="text-sm text-destructive mb-4">The subscription plan you selected is not available.</p>
+            <Link href="/pricing">
+              <Button variant="outline">Back to Pricing</Button>
+            </Link>
               </>
             )}
           </CardContent>
@@ -331,7 +331,7 @@ function CheckoutContent() {
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-center gap-2">
                     {getTierIcon(planId)}
-                    <div>
+                  <div>
                       <h3 className="font-semibold text-foreground">{selectedTier.name}</h3>
                       <p className="text-xs text-muted-foreground mt-1">{selectedTier.description}</p>
                     </div>
@@ -339,10 +339,10 @@ function CheckoutContent() {
                 </div>
 
                 {/* Key Features */}
-                <Separator />
-                <div className="space-y-2">
+                    <Separator />
+                    <div className="space-y-2">
                   <p className="text-xs font-semibold text-muted-foreground uppercase">Key Benefits:</p>
-                  <ul className="space-y-2">
+                      <ul className="space-y-2">
                     <li className="text-xs text-muted-foreground flex items-start gap-2">
                       <span className="text-primary mt-0.5">✓</span>
                       <span>{selectedTier.queriesPerDay === 'unlimited' ? 'Unlimited' : selectedTier.queriesPerDay} queries/day</span>
@@ -373,10 +373,10 @@ function CheckoutContent() {
                       <li className="text-xs text-muted-foreground flex items-start gap-2">
                         <span className="text-primary mt-0.5">✓</span>
                         <span>{selectedTier.gating.alerts.join(', ')} alerts</span>
-                      </li>
-                    )}
-                  </ul>
-                </div>
+                          </li>
+                        )}
+                      </ul>
+                    </div>
               </div>
 
               <Separator />
@@ -391,7 +391,7 @@ function CheckoutContent() {
                   <div className="flex justify-between text-xs">
                     <span className="text-muted-foreground">Annual option</span>
                     <span className="text-green-600">{formatTierPrice(planId, 'yearly')}/yr (save 17%)</span>
-                  </div>
+                </div>
                 )}
                 <Separator />
                 <div className="flex justify-between">

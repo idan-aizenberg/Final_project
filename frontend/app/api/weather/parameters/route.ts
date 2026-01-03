@@ -24,9 +24,9 @@ export async function GET(request: Request) {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Build query for forecasts within date range and temperature range
-    let query = supabase
+  let query = supabase
       .from('weather_forecasts')
-      .select('grid_index, day_of_year, avg_temperature, max_temperature')
+      .select('grid_index, day_of_year, avg_temperature, max_temperature, min_temperature, precipitation_sum, snowfall_amount, solar_radiation')
       .gte('day_of_year', startDay)
       .lte('day_of_year', endDay);
 
@@ -64,13 +64,17 @@ export async function GET(request: Request) {
     }
 
     // Group by grid_index and get unique locations
-    const gridIndexMap = new Map<number, { avgTemp: number; maxTemp: number; day: number }>();
+    const gridIndexMap = new Map<number, { avgTemp: number; maxTemp?: number; minTemp?: number; precip?: number; snowfall?: number; solar?: number; day: number }>();
     
     forecasts.forEach((forecast) => {
       if (!gridIndexMap.has(forecast.grid_index)) {
         gridIndexMap.set(forecast.grid_index, {
           avgTemp: forecast.avg_temperature,
           maxTemp: forecast.max_temperature,
+          minTemp: forecast.min_temperature,
+          precip: forecast.precipitation_sum,
+          snowfall: forecast.snowfall_amount,
+          solar: forecast.solar_radiation,
           day: forecast.day_of_year,
         });
       }
@@ -111,6 +115,10 @@ export async function GET(request: Request) {
         },
         temperature: forecastData?.avgTemp || 0,
         maxTemperature: forecastData?.maxTemp,
+        minTemperature: forecastData?.minTemp,
+        precipitationSum: forecastData?.precip,
+        snowfallAmount: forecastData?.snowfall,
+        solarRadiation: forecastData?.solar,
         dayOfYear: forecastData?.day || startDay,
       };
     });
@@ -129,4 +137,3 @@ export async function GET(request: Request) {
     );
   }
 }
-

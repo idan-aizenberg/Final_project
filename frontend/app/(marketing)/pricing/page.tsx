@@ -82,8 +82,8 @@ export default function PricingPage() {
             >
               <CardHeader className="space-y-4 p-0">
                 <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-xl font-semibold text-foreground">{tier.name}</CardTitle>
+                <div>
+                  <CardTitle className="text-xl font-semibold text-foreground">{tier.name}</CardTitle>
                     <CardDescription className="mt-1">{tier.description}</CardDescription>
                   </div>
                   {isPopular && (
@@ -151,31 +151,31 @@ export default function PricingPage() {
             </div>
             
             {/* Feature rows */}
-            {featureMatrix.map((row) => (
+          {featureMatrix.map((row) => (
               <div 
                 key={row.label} 
                 className="grid items-center gap-4 border-b border-border/40 pb-4 text-sm text-muted-foreground last:border-b-0 last:pb-0" 
                 style={{ gridTemplateColumns: "minmax(180px, 1fr) repeat(4, minmax(120px, 1fr))" }}
               >
-                <span className="font-medium text-foreground">{row.label}</span>
-                {tierOrder.map((id) => {
-                  const value = row.render(id);
-                  return (
+              <span className="font-medium text-foreground">{row.label}</span>
+              {tierOrder.map((id) => {
+                const value = row.render(id);
+                return (
                     <span key={id} className="flex items-center justify-center gap-2">
-                      {typeof value === "boolean" ? (
+                    {typeof value === "boolean" ? (
                         value ? (
                           <Check className="h-5 w-5 text-emerald-500" aria-hidden />
                         ) : (
                           <Minus className="h-5 w-5 text-muted-foreground/50" aria-hidden />
                         )
-                      ) : (
+                    ) : (
                         <span className="text-foreground text-center">{value}</span>
-                      )}
-                    </span>
-                  );
-                })}
-              </div>
-            ))}
+                    )}
+                  </span>
+                );
+              })}
+            </div>
+          ))}
           </div>
         </div>
       </section>

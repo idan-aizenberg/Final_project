@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
-import { Search, MapPin, Calendar, Thermometer, Grid3x3, AlertTriangle, Zap, Crown, Clock, Bookmark, BookmarkPlus } from "lucide-react";
+import { Search, MapPin, Calendar, Thermometer, Grid3x3, AlertTriangle, Zap, Crown, Clock, Bookmark, BookmarkPlus, Droplets, Snowflake, Sun } from "lucide-react";
 import { geocodeLocation, searchLocationSuggestions, type LocationSuggestion } from "@/lib/geocoding";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { format, addDays, differenceInDays } from "date-fns";
@@ -32,6 +32,10 @@ interface WeatherData {
   distance: number;
   temperature: number;
   maxTemperature?: number;
+  minTemperature?: number;
+  precipitationSum?: number;
+  snowfallAmount?: number;
+  solarRadiation?: number;
   dayOfYear: number;
   cityName?: string;
   displayName?: string;
@@ -505,7 +509,7 @@ export default function SearchPage() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-8 gap-4">
                   <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
                     <div className="flex items-center gap-2 mb-2">
                       <Thermometer className="h-4 w-4 text-primary" />
@@ -524,6 +528,33 @@ export default function SearchPage() {
                       {weatherData.maxTemperature ? weatherData.maxTemperature.toFixed(1) : '--'}°C
                     </p>
                   </div>
+                  <div className="p-4 rounded-lg bg-sky-500/10 border border-sky-500/20">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Thermometer className="h-4 w-4 text-sky-500" />
+                      <p className="text-sm text-muted-foreground">Min Temperature</p>
+                    </div>
+                    <p className="text-3xl font-bold text-sky-500">
+                      {weatherData.minTemperature ? weatherData.minTemperature.toFixed(1) : '--'}°C
+                    </p>
+                  </div>
+                  <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Droplets className="h-4 w-4 text-blue-500" />
+                      <p className="text-sm text-muted-foreground">Precipitation</p>
+                    </div>
+                    <p className="text-3xl font-bold text-blue-500">
+                      {weatherData.precipitationSum !== undefined ? weatherData.precipitationSum.toFixed(2) : '--'} mm
+                    </p>
+                  </div>
+                  <div className="p-4 rounded-lg bg-indigo-500/10 border border-indigo-500/20">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Snowflake className="h-4 w-4 text-indigo-500" />
+                      <p className="text-sm text-muted-foreground">Snowfall</p>
+                    </div>
+                    <p className="text-3xl font-bold text-indigo-500">
+                      {weatherData.snowfallAmount !== undefined ? weatherData.snowfallAmount.toFixed(2) : '--'} mm
+                    </p>
+                  </div>
                   <div className="p-4 rounded-lg bg-muted/50">
                     <div className="flex items-center gap-2 mb-2">
                       <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -531,6 +562,16 @@ export default function SearchPage() {
                     </div>
                     <p className="text-xl font-semibold">Day {weatherData.dayOfYear}</p>
                     <p className="text-xs text-muted-foreground">{getDayOfYearDate(weatherData.dayOfYear)}</p>
+                  </div>
+                  <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Sun className="h-4 w-4 text-amber-500" />
+                      <p className="text-sm text-muted-foreground">Solar Radiation</p>
+                    </div>
+                    <p className="text-3xl font-bold text-amber-500">
+                      {weatherData.solarRadiation !== undefined ? weatherData.solarRadiation.toFixed(1) : '--'}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Units as provided</p>
                   </div>
                   <div className="p-4 rounded-lg bg-muted/50">
                     <div className="flex items-center gap-2 mb-2">

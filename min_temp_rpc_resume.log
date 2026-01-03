@@ -1,0 +1,278 @@
+🚀 Resume min_temperature upload (RPC bulk updater)
+🔎 Checking current DB progress...
+  checked day 25: 12974/12974 (rows exist: 12974)
+  checked day 50: 12974/12974 (rows exist: 12974)
+  checked day 75: 12974/12974 (rows exist: 12974)
+  checked day 100: 12974/12974 (rows exist: 12974)
+  checked day 125: 12974/12974 (rows exist: 12974)
+  checked day 150: 0/12974 (rows exist: 12974)
+  checked day 175: 0/12974 (rows exist: 12974)
+  checked day 200: 0/12974 (rows exist: 12974)
+  checked day 225: 0/12974 (rows exist: 12974)
+  checked day 250: 0/12974 (rows exist: 12974)
+  checked day 275: 0/12974 (rows exist: 12974)
+  checked day 300: 0/12974 (rows exist: 12974)
+🧩 Missing/partial days in 1-323: 180
+   First few: day144(9454), day145(0), day146(0), day147(0), day148(0), day149(0), day150(0), day151(0)
+📁 Reading CSV: /Users/idanaizenberg/Documents/Braude/WeatherSight/Final_project/data/data_integr_2025_13.csv
+  ✓ day 144: updated 12974 rows (38.2s elapsed)
+  ✓ day 145: updated 12974 rows (78.0s elapsed)
+  ✓ day 146: updated 12974 rows (119.0s elapsed)
+  ✓ day 147: updated 12974 rows (161.5s elapsed)
+  ✓ day 148: updated 12974 rows (199.4s elapsed)
+  ✓ day 149: updated 12974 rows (241.2s elapsed)
+  ✓ day 150: updated 12974 rows (285.0s elapsed)
+  ✓ day 151: updated 12974 rows (329.2s elapsed)
+  ✓ day 152: updated 12974 rows (372.9s elapsed)
+  ✓ day 153: updated 12974 rows (411.8s elapsed)
+  ✓ day 154: updated 12974 rows (452.2s elapsed)
+  ✓ day 155: updated 12974 rows (498.6s elapsed)
+  ✓ day 156: updated 12974 rows (544.4s elapsed)
+  ✓ day 157: updated 12974 rows (588.8s elapsed)
+  ✓ day 158: updated 12974 rows (629.7s elapsed)
+  ✓ day 159: updated 12974 rows (669.3s elapsed)
+  ✓ day 160: updated 12974 rows (708.3s elapsed)
+  ✓ day 161: updated 12974 rows (749.5s elapsed)
+  ✓ day 162: updated 12974 rows (795.2s elapsed)
+  ✓ day 163: updated 12974 rows (840.5s elapsed)
+  ✓ day 164: updated 12974 rows (886.1s elapsed)
+  ✓ day 165: updated 12974 rows (926.6s elapsed)
+  ✓ day 166: updated 12974 rows (974.7s elapsed)
+  ✓ day 167: updated 12974 rows (1029.0s elapsed)
+  ✓ day 168: updated 12974 rows (1072.4s elapsed)
+  ✓ day 169: updated 12974 rows (1109.4s elapsed)
+  ✓ day 170: updated 12974 rows (1152.8s elapsed)
+  ✓ day 171: updated 12974 rows (1193.2s elapsed)
+  ✓ day 172: updated 12974 rows (1232.5s elapsed)
+  ✓ day 173: updated 12974 rows (1275.3s elapsed)
+  ✓ day 174: updated 12974 rows (1315.0s elapsed)
+  ✓ day 175: updated 12974 rows (1356.6s elapsed)
+  ✓ day 176: updated 12974 rows (1401.7s elapsed)
+  ✓ day 177: updated 12974 rows (1444.1s elapsed)
+  ✓ day 178: updated 12974 rows (1486.9s elapsed)
+  ✓ day 179: updated 12974 rows (1530.1s elapsed)
+  ✓ day 180: updated 12974 rows (1570.1s elapsed)
+  ✓ day 181: updated 12974 rows (1613.8s elapsed)
+  ✓ day 182: updated 12974 rows (1658.4s elapsed)
+  ✓ day 183: updated 12974 rows (1712.1s elapsed)
+  ✓ day 184: updated 12974 rows (1759.1s elapsed)
+  ✓ day 185: updated 12974 rows (1802.8s elapsed)
+  ✓ day 186: updated 12974 rows (1847.7s elapsed)
+  ✓ day 187: updated 12974 rows (1892.6s elapsed)
+  ✓ day 188: updated 12974 rows (1938.7s elapsed)
+  ✓ day 189: updated 12974 rows (1984.7s elapsed)
+  ✓ day 190: updated 12974 rows (2028.0s elapsed)
+  ✓ day 191: updated 12974 rows (2075.5s elapsed)
+  ✓ day 192: updated 12974 rows (2121.6s elapsed)
+  ✓ day 193: updated 12974 rows (2181.7s elapsed)
+  ✓ day 194: updated 12974 rows (2225.8s elapsed)
+🚀 Resume min_temperature upload (RPC bulk updater)
+🔎 Checking current DB progress...
+  checked day 25: 12974/12974 (rows exist: 12974)
+  checked day 50: 12974/12974 (rows exist: 12974)
+  checked day 75: 12974/12974 (rows exist: 12974)
+  checked day 100: 12974/12974 (rows exist: 12974)
+  checked day 125: 12974/12974 (rows exist: 12974)
+  checked day 150: 12974/12974 (rows exist: 12974)
+  checked day 175: 12974/12974 (rows exist: 12974)
+  checked day 200: 0/12974 (rows exist: 12974)
+  checked day 225: 0/12974 (rows exist: 12974)
+  checked day 250: 0/12974 (rows exist: 12974)
+  checked day 275: 0/12974 (rows exist: 12974)
+  checked day 300: 0/12974 (rows exist: 12974)
+🧩 Missing/partial days in 1-323: 129
+   First few: day195(3000), day196(0), day197(0), day198(0), day199(0), day200(0), day201(0), day202(0)
+📁 Reading CSV: /Users/idanaizenberg/Documents/Braude/WeatherSight/Final_project/data/data_integr_2025_13.csv
+  ✓ day 195: updated 12974 rows (45.1s elapsed)
+  ✓ day 196: updated 12974 rows (88.6s elapsed)
+  ✓ day 197: updated 12974 rows (134.1s elapsed)
+  ✓ day 198: updated 12974 rows (189.9s elapsed)
+  ✓ day 199: updated 12974 rows (233.1s elapsed)
+  ✓ day 200: updated 12974 rows (275.3s elapsed)
+  ✓ day 201: updated 12974 rows (321.1s elapsed)
+  ✓ day 202: updated 12974 rows (364.1s elapsed)
+  ✓ day 203: updated 12974 rows (405.2s elapsed)
+  ✓ day 204: updated 12974 rows (446.2s elapsed)
+  ✓ day 205: updated 12974 rows (492.4s elapsed)
+  ✓ day 206: updated 12974 rows (536.3s elapsed)
+  ✓ day 207: updated 12974 rows (580.0s elapsed)
+  ✓ day 208: updated 12974 rows (619.9s elapsed)
+  ✓ day 209: updated 12974 rows (662.8s elapsed)
+  ✓ day 210: updated 12974 rows (705.5s elapsed)
+  ✓ day 211: updated 12974 rows (748.2s elapsed)
+  ✓ day 212: updated 12974 rows (803.7s elapsed)
+  ✓ day 213: updated 12974 rows (850.1s elapsed)
+  ✓ day 214: updated 12974 rows (893.3s elapsed)
+  ✓ day 215: updated 12974 rows (931.2s elapsed)
+  ✓ day 216: updated 12974 rows (971.5s elapsed)
+  ✓ day 217: updated 12974 rows (1016.2s elapsed)
+  ✓ day 218: updated 12974 rows (1058.0s elapsed)
+  ✓ day 219: updated 12974 rows (1100.3s elapsed)
+  ✓ day 220: updated 12974 rows (1146.6s elapsed)
+  ✓ day 221: updated 12974 rows (1188.0s elapsed)
+  ✓ day 222: updated 12974 rows (1230.0s elapsed)
+  ✓ day 223: updated 12974 rows (1276.3s elapsed)
+  ✓ day 224: updated 12974 rows (1318.5s elapsed)
+  ✓ day 225: updated 12974 rows (1364.1s elapsed)
+  ✓ day 226: updated 12974 rows (1413.9s elapsed)
+  ✓ day 227: updated 12974 rows (1457.1s elapsed)
+  ✓ day 228: updated 12974 rows (1499.8s elapsed)
+  ✓ day 229: updated 12974 rows (1540.5s elapsed)
+  ✓ day 230: updated 12974 rows (1583.5s elapsed)
+  ✓ day 231: updated 12974 rows (1631.5s elapsed)
+  ✓ day 232: updated 12974 rows (1674.0s elapsed)
+  ✓ day 233: updated 12974 rows (1714.8s elapsed)
+  ✓ day 234: updated 12974 rows (1767.9s elapsed)
+  ✓ day 235: updated 12974 rows (1814.5s elapsed)
+  ✓ day 236: updated 12974 rows (1857.8s elapsed)
+  ✓ day 237: updated 12974 rows (1903.0s elapsed)
+  ✓ day 238: updated 12974 rows (1938.3s elapsed)
+  ✓ day 239: updated 12974 rows (1973.5s elapsed)
+  ✓ day 240: updated 12974 rows (2012.0s elapsed)
+  ✓ day 241: updated 12974 rows (2047.5s elapsed)
+  ✓ day 242: updated 12974 rows (2094.3s elapsed)
+  ✓ day 243: updated 12974 rows (2136.8s elapsed)
+  ✓ day 244: updated 12974 rows (2176.6s elapsed)
+  ✓ day 245: updated 12974 rows (2212.3s elapsed)
+  ✓ day 246: updated 12974 rows (2247.1s elapsed)
+  ✓ day 247: updated 12974 rows (2295.1s elapsed)
+  ✓ day 248: updated 12974 rows (2342.2s elapsed)
+  ✓ day 249: updated 12974 rows (2396.3s elapsed)
+  ✓ day 250: updated 12974 rows (2440.9s elapsed)
+  ✓ day 251: updated 12974 rows (2484.9s elapsed)
+  ✓ day 252: updated 12974 rows (2529.9s elapsed)
+  ✓ day 253: updated 12974 rows (2566.6s elapsed)
+  ✓ day 254: updated 12974 rows (2597.5s elapsed)
+  ✓ day 255: updated 12974 rows (2621.5s elapsed)
+  ✓ day 256: updated 12974 rows (2638.5s elapsed)
+  ✓ day 257: updated 12974 rows (2654.2s elapsed)
+  ✓ day 258: updated 12974 rows (2689.3s elapsed)
+  ✓ day 259: updated 12974 rows (2733.5s elapsed)
+  ✓ day 260: updated 12974 rows (2778.9s elapsed)
+  ✓ day 261: updated 12974 rows (2821.5s elapsed)
+  ✓ day 262: updated 12974 rows (2864.1s elapsed)
+  ✓ day 263: updated 12974 rows (2911.7s elapsed)
+  ✓ day 264: updated 12974 rows (2956.8s elapsed)
+  ✓ day 265: updated 12974 rows (2998.4s elapsed)
+  ✓ day 266: updated 12974 rows (3041.3s elapsed)
+  ✓ day 267: updated 12974 rows (3083.9s elapsed)
+  ✓ day 268: updated 12974 rows (3124.4s elapsed)
+  ✓ day 269: updated 12974 rows (3180.4s elapsed)
+  ✓ day 270: updated 12974 rows (3214.0s elapsed)
+  ✓ day 271: updated 12974 rows (3248.5s elapsed)
+  ✓ day 272: updated 12974 rows (3291.7s elapsed)
+  ✓ day 273: updated 12974 rows (3331.6s elapsed)
+  ✓ day 274: updated 12974 rows (3374.9s elapsed)
+  ✓ day 275: updated 12974 rows (3418.8s elapsed)
+  ✓ day 276: updated 12974 rows (3461.9s elapsed)
+  ✓ day 277: updated 12974 rows (3508.8s elapsed)
+  ✓ day 278: updated 12974 rows (3559.3s elapsed)
+  ✓ day 279: updated 12974 rows (3605.1s elapsed)
+  ✓ day 280: updated 12974 rows (3646.0s elapsed)
+  ✓ day 281: updated 12974 rows (3690.2s elapsed)
+  ✓ day 282: updated 12974 rows (3731.2s elapsed)
+  ✓ day 283: updated 12974 rows (3771.3s elapsed)
+  ✓ day 284: updated 12974 rows (3817.9s elapsed)
+  ✓ day 285: updated 12974 rows (3860.9s elapsed)
+  ✓ day 286: updated 12974 rows (3903.9s elapsed)
+  ✓ day 287: updated 12974 rows (3945.0s elapsed)
+  ✓ day 288: updated 12974 rows (3986.5s elapsed)
+  ✓ day 289: updated 12974 rows (4027.3s elapsed)
+  ✓ day 290: updated 12974 rows (4067.8s elapsed)
+  ✓ day 291: updated 12974 rows (4109.6s elapsed)
+  ✓ day 292: updated 12974 rows (4153.0s elapsed)
+  ✓ day 293: updated 12974 rows (4195.4s elapsed)
+  ✓ day 294: updated 12974 rows (4231.6s elapsed)
+  ✓ day 295: updated 12974 rows (4289.8s elapsed)
+  ✓ day 296: updated 12974 rows (4330.2s elapsed)
+  ✓ day 297: updated 12974 rows (4371.7s elapsed)
+  ✓ day 298: updated 12974 rows (4417.6s elapsed)
+  ✓ day 299: updated 12974 rows (4459.0s elapsed)
+  ✓ day 300: updated 12974 rows (4498.8s elapsed)
+  ✓ day 301: updated 12974 rows (4542.5s elapsed)
+  ✓ day 302: updated 12974 rows (4580.7s elapsed)
+  ✓ day 303: updated 12974 rows (4612.4s elapsed)
+  ✓ day 304: updated 12974 rows (4643.4s elapsed)
+  ✓ day 305: updated 12974 rows (4685.6s elapsed)
+  ✓ day 306: updated 12974 rows (4722.4s elapsed)
+  ✓ day 307: updated 12974 rows (4776.3s elapsed)
+  ✓ day 308: updated 12974 rows (4816.9s elapsed)
+  ✓ day 309: updated 12974 rows (4860.2s elapsed)
+  ✓ day 310: updated 12974 rows (4902.0s elapsed)
+  ✓ day 311: updated 12974 rows (4950.4s elapsed)
+  ✓ day 312: updated 12974 rows (4992.4s elapsed)
+  ✓ day 313: updated 12974 rows (5045.4s elapsed)
+  ✓ day 314: updated 12974 rows (5087.6s elapsed)
+  ✓ day 315: updated 12974 rows (5133.7s elapsed)
+  ✓ day 316: updated 12974 rows (5171.0s elapsed)
+  ✓ day 317: updated 12974 rows (5203.0s elapsed)
+  ✓ day 318: updated 12974 rows (5245.3s elapsed)
+  ✓ day 319: updated 12974 rows (5287.9s elapsed)
+  ✓ day 320: updated 12974 rows (5331.9s elapsed)
+  ✓ day 321: updated 12974 rows (5374.0s elapsed)
+  ✓ day 322: updated 12974 rows (5416.9s elapsed)
+  ✓ day 323: updated 12974 rows (5462.0s elapsed)
+✅ Uploaded missing days in 1-323. Processed days: 129
+🔁 Checking fill for days 324-365...
+  ✓ filled day 324: updated 12974 rows
+  ✓ filled day 325: updated 12974 rows
+  ✓ filled day 326: updated 12974 rows
+  ✓ filled day 327: updated 12974 rows
+  ✓ filled day 328: updated 12974 rows
+  ✓ filled day 329: updated 12974 rows
+  ✓ filled day 330: updated 12974 rows
+  ✓ filled day 331: updated 12974 rows
+  ✓ filled day 332: updated 12974 rows
+  ✓ filled day 333: updated 12974 rows
+  ✓ filled day 334: updated 12974 rows
+  ✓ filled day 335: updated 12974 rows
+  ✓ filled day 336: updated 12974 rows
+❌ Fatal: canceling statement due to statement timeout
+🚀 Resume min_temperature upload (RPC bulk updater)
+🔎 Checking current DB progress...
+  checked day 25: 12974/12974 (rows exist: 12974)
+  checked day 50: 12974/12974 (rows exist: 12974)
+  checked day 75: 12974/12974 (rows exist: 12974)
+  checked day 100: 12974/12974 (rows exist: 12974)
+  checked day 125: 12974/12974 (rows exist: 12974)
+  checked day 150: 12974/12974 (rows exist: 12974)
+  checked day 175: 12974/12974 (rows exist: 12974)
+  checked day 200: 12974/12974 (rows exist: 12974)
+  checked day 225: 12974/12974 (rows exist: 12974)
+  checked day 250: 12974/12974 (rows exist: 12974)
+  checked day 275: 12974/12974 (rows exist: 12974)
+  checked day 300: 12974/12974 (rows exist: 12974)
+✅ Days 1-323 already fully populated. (No upload needed for CSV range)
+📁 Reading CSV: /Users/idanaizenberg/Documents/Braude/WeatherSight/Final_project/data/data_integr_2025_13.csv
+✅ Uploaded missing days in 1-323. Processed days: 0
+🔁 Checking fill for days 324-365...
+  ✓ filled day 337: updated 4974 rows
+  ✓ filled day 338: updated 12974 rows
+  ✓ filled day 339: updated 12974 rows
+  ✓ filled day 340: updated 12974 rows
+  ✓ filled day 341: updated 12974 rows
+  ✓ filled day 342: updated 12974 rows
+  ✓ filled day 343: updated 12974 rows
+  ✓ filled day 344: updated 12974 rows
+  ✓ filled day 345: updated 12974 rows
+  ✓ filled day 346: updated 12974 rows
+  ✓ filled day 347: updated 12974 rows
+  ✓ filled day 348: updated 12974 rows
+  ✓ filled day 349: updated 12974 rows
+  ✓ filled day 350: updated 12974 rows
+  ✓ filled day 351: updated 12974 rows
+  ✓ filled day 352: updated 12974 rows
+  ✓ filled day 353: updated 12974 rows
+  ✓ filled day 354: updated 12974 rows
+  ✓ filled day 355: updated 12974 rows
+  ✓ filled day 356: updated 12974 rows
+  ✓ filled day 357: updated 12974 rows
+  ✓ filled day 358: updated 12974 rows
+  ✓ filled day 359: updated 12974 rows
+  ✓ filled day 360: updated 12974 rows
+  ✓ filled day 361: updated 12974 rows
+  ✓ filled day 362: updated 12974 rows
+  ✓ filled day 363: updated 12974 rows
+  ✓ filled day 364: updated 12974 rows
+  ✓ filled day 365: updated 12974 rows
+🎉 Done. Filled days 324-365: 29

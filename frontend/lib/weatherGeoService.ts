@@ -19,6 +19,10 @@ interface WeatherResult {
   distance: number;
   temperature: number;
   maxTemperature?: number;
+  minTemperature?: number;
+  precipitationSum?: number;
+  snowfallAmount?: number;
+  solarRadiation?: number;
   dayOfYear: number;
   nearestPointDistance: number;
 }
@@ -234,7 +238,7 @@ export class WeatherGeoService {
     // Query forecast data for this grid point and day
     const { data: forecastData, error } = await this.supabase
       .from('weather_forecasts')
-      .select('avg_temperature, max_temperature')
+      .select('avg_temperature, max_temperature, min_temperature, precipitation_sum, snowfall_amount, solar_radiation')
       .eq('grid_index', gridIndex)
       .eq('day_of_year', dayOfYear)
       .single();
@@ -255,6 +259,10 @@ export class WeatherGeoService {
       distance: actualDistance,
       temperature: forecastData.avg_temperature,
       maxTemperature: forecastData.max_temperature,
+      minTemperature: forecastData.min_temperature,
+      precipitationSum: forecastData.precipitation_sum,
+      snowfallAmount: forecastData.snowfall_amount,
+      solarRadiation: forecastData.solar_radiation,
       dayOfYear,
       nearestPointDistance: actualDistance,
     };
@@ -278,7 +286,7 @@ export class WeatherGeoService {
 
     const { data: forecastData, error } = await this.supabase
       .from('weather_forecasts')
-      .select('avg_temperature, max_temperature')
+      .select('avg_temperature, max_temperature, min_temperature, precipitation_sum, snowfall_amount, solar_radiation')
       .eq('grid_index', gridIndex)
       .eq('day_of_year', dayOfYear)
       .single();
@@ -296,6 +304,10 @@ export class WeatherGeoService {
       distance: 0,
       temperature: forecastData.avg_temperature,
       maxTemperature: forecastData.max_temperature,
+      minTemperature: forecastData.min_temperature,
+      precipitationSum: forecastData.precipitation_sum,
+      snowfallAmount: forecastData.snowfall_amount,
+      solarRadiation: forecastData.solar_radiation,
       dayOfYear,
       nearestPointDistance: 0,
     };
@@ -360,4 +372,3 @@ export async function getWeatherService(): Promise<WeatherGeoService> {
   }
   return serviceInstance;
 }
-

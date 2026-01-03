@@ -22,27 +22,78 @@ if (!supabaseUrl || !supabaseKey) {
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+/**
+ * Update max_temperature for existing forecast records
+ * Uses UPDATE (not UPSERT) to avoid NOT NULL constraint issues
+ */
+async function updateMaxTempBatch(records) {
+  // Process records in parallel with limited concurrency
+  const CONCURRENT_LIMIT = 50;
+  
+  for (let i = 0; i < records.length; i += CONCURRENT_LIMIT) {
+    const batch = records.slice(i, i + CONCURRENT_LIMIT);
+    
+    await Promise.all(batch.map(async (record) => {
+      const { error } = await supabase
+        .from('weather_forecasts')
+        .update({ max_temperature: record.max_temperature })
+        .eq('grid_index', record.grid_index)
+        .eq('day_of_year', record.day_of_year)
+        .eq('forecast_year', record.forecast_year);
+      
+      if (error) {
+        console.error(`❌ Error updating grid ${record.grid_index}, day ${record.day_of_year}:`, error.message);
+      }
+    }));
+  }
+}
+
 async function loadMaxTemperatureData() {
   console.log('🚀 Starting max temperature data seeding...\n');
 
-  // Step 1: Load grid map from database
+  // Step 1: Load grid map from database (with pagination)
   console.log('📊 Loading grid coordinates from database...');
-  const { data: gridData, error: gridError } = await supabase
-    .from('weather_grid')
-    .select('grid_index, longitude, latitude');
+  
+  const BATCH_SIZE = 1000;
+  let allGridData = [];
+  let currentBatch = 0;
+  let hasMore = true;
 
-  if (gridError) {
-    console.error('❌ Error fetching grid data:', gridError);
-    process.exit(1);
+  while (hasMore) {
+    const start = currentBatch * BATCH_SIZE;
+    const end = start + BATCH_SIZE - 1;
+    
+    const { data: batchData, error: gridError } = await supabase
+      .from('weather_grid')
+      .select('grid_index, longitude, latitude')
+      .order('grid_index')
+      .range(start, end);
+
+    if (gridError) {
+      console.error('❌ Error fetching grid data:', gridError);
+      process.exit(1);
+    }
+
+    if (!batchData || batchData.length === 0) {
+      hasMore = false;
+    } else {
+      allGridData = allGridData.concat(batchData);
+      console.log(`  ✓ Loaded batch ${currentBatch + 1}: ${batchData.length} points (total: ${allGridData.length})`);
+      
+      if (batchData.length < BATCH_SIZE) {
+        hasMore = false;
+      }
+      currentBatch++;
+    }
   }
 
-  if (!gridData || gridData.length === 0) {
+  if (allGridData.length === 0) {
     console.error('❌ No grid data found. Please run initial seed first.');
     process.exit(1);
   }
 
   const gridMap = new Map();
-  gridData.forEach((point) => {
+  allGridData.forEach((point) => {
     gridMap.set(point.grid_index, {
       lon: point.longitude,
       lat: point.latitude,
@@ -92,17 +143,9 @@ async function loadMaxTemperatureData() {
         forecast_year: 2025,
       });
 
-      // Batch update every 1000 records (smaller batches for reliability)
-      if (updateRecords.length >= 1000) {
-        const { error } = await supabase
-          .from('weather_forecasts')
-          .upsert(updateRecords, { onConflict: 'grid_index,day_of_year,forecast_year' });
-
-        if (error) {
-          console.error('❌ Error updating batch:', error);
-          process.exit(1);
-        }
-
+      // Batch update every 500 records (smaller batches for reliability)
+      if (updateRecords.length >= 500) {
+        await updateMaxTempBatch(updateRecords);
         totalUpdated += updateRecords.length;
         console.log(`  ✓ Updated ${totalUpdated.toLocaleString()} records (Day ${dayOfYear})`);
         updateRecords.length = 0;
@@ -114,15 +157,7 @@ async function loadMaxTemperatureData() {
 
   // Update remaining records
   if (updateRecords.length > 0) {
-    const { error } = await supabase
-      .from('weather_forecasts')
-      .upsert(updateRecords, { onConflict: 'grid_index,day_of_year,forecast_year' });
-
-    if (error) {
-      console.error('❌ Error updating final batch:', error);
-      process.exit(1);
-    }
-
+    await updateMaxTempBatch(updateRecords);
     totalUpdated += updateRecords.length;
     console.log(`  ✓ Updated ${totalUpdated.toLocaleString()} records (Day ${dayOfYear - 1})`);
   }
@@ -149,16 +184,8 @@ async function loadMaxTemperatureData() {
           forecast_year: 2025,
         });
 
-        if (fillRecords.length >= 1000) {
-          const { error } = await supabase
-            .from('weather_forecasts')
-            .upsert(fillRecords, { onConflict: 'grid_index,day_of_year,forecast_year' });
-
-          if (error) {
-            console.error('❌ Error filling missing days:', error);
-            process.exit(1);
-          }
-
+        if (fillRecords.length >= 500) {
+          await updateMaxTempBatch(fillRecords);
           fillUpdated += fillRecords.length;
           console.log(`  ✓ Filled ${fillUpdated.toLocaleString()} records (Day ${day})`);
           fillRecords.length = 0;
@@ -168,15 +195,7 @@ async function loadMaxTemperatureData() {
 
     // Update remaining fill records
     if (fillRecords.length > 0) {
-      const { error } = await supabase
-        .from('weather_forecasts')
-        .upsert(fillRecords, { onConflict: 'grid_index,day_of_year,forecast_year' });
-
-      if (error) {
-        console.error('❌ Error filling final batch:', error);
-        process.exit(1);
-      }
-
+      await updateMaxTempBatch(fillRecords);
       fillUpdated += fillRecords.length;
       console.log(`  ✓ Filled ${fillUpdated.toLocaleString()} records (Day 365)`);
     }
