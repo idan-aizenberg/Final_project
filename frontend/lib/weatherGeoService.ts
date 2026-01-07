@@ -23,6 +23,8 @@ interface WeatherResult {
   precipitationSum?: number;
   snowfallAmount?: number;
   solarRadiation?: number;
+  windSpeed?: number;
+  windDirection?: number;
   dayOfYear: number;
   nearestPointDistance: number;
 }
@@ -238,7 +240,7 @@ export class WeatherGeoService {
     // Query forecast data for this grid point and day
     const { data: forecastData, error } = await this.supabase
       .from('weather_forecasts')
-      .select('avg_temperature, max_temperature, min_temperature, precipitation_sum, snowfall_amount, solar_radiation')
+      .select('avg_temperature, max_temperature, min_temperature, precipitation_sum, snowfall_amount, solar_radiation, wind_speed_u_max, wind_speed_v_max')
       .eq('grid_index', gridIndex)
       .eq('day_of_year', dayOfYear)
       .single();
@@ -248,6 +250,20 @@ export class WeatherGeoService {
       throw new Error(
         `No forecast data found for grid ${gridIndex} on day ${dayOfYear}`
       );
+    }
+
+    // Calculate wind speed and direction from U and V components
+    const windU = forecastData.wind_speed_u_max;
+    const windV = forecastData.wind_speed_v_max;
+    let windSpeed: number | undefined;
+    let windDirection: number | undefined;
+    
+    if (windU !== null && windV !== null && windU !== undefined && windV !== undefined) {
+      // Wind speed magnitude: sqrt(u² + v²)
+      windSpeed = Math.sqrt(windU * windU + windV * windV);
+      // Wind direction in degrees (meteorological convention: direction wind comes FROM)
+      // atan2(u, v) gives the direction the wind is blowing TO, add 180 for FROM direction
+      windDirection = (Math.atan2(windU, windV) * 180 / Math.PI + 180) % 360;
     }
 
     return {
@@ -263,6 +279,8 @@ export class WeatherGeoService {
       precipitationSum: forecastData.precipitation_sum,
       snowfallAmount: forecastData.snowfall_amount,
       solarRadiation: forecastData.solar_radiation,
+      windSpeed,
+      windDirection,
       dayOfYear,
       nearestPointDistance: actualDistance,
     };
@@ -286,13 +304,24 @@ export class WeatherGeoService {
 
     const { data: forecastData, error } = await this.supabase
       .from('weather_forecasts')
-      .select('avg_temperature, max_temperature, min_temperature, precipitation_sum, snowfall_amount, solar_radiation')
+      .select('avg_temperature, max_temperature, min_temperature, precipitation_sum, snowfall_amount, solar_radiation, wind_speed_u_max, wind_speed_v_max')
       .eq('grid_index', gridIndex)
       .eq('day_of_year', dayOfYear)
       .single();
 
     if (error || !forecastData) {
       return null;
+    }
+
+    // Calculate wind speed and direction from U and V components
+    const windU = forecastData.wind_speed_u_max;
+    const windV = forecastData.wind_speed_v_max;
+    let windSpeed: number | undefined;
+    let windDirection: number | undefined;
+    
+    if (windU !== null && windV !== null && windU !== undefined && windV !== undefined) {
+      windSpeed = Math.sqrt(windU * windU + windV * windV);
+      windDirection = (Math.atan2(windU, windV) * 180 / Math.PI + 180) % 360;
     }
 
     return {
@@ -308,6 +337,8 @@ export class WeatherGeoService {
       precipitationSum: forecastData.precipitation_sum,
       snowfallAmount: forecastData.snowfall_amount,
       solarRadiation: forecastData.solar_radiation,
+      windSpeed,
+      windDirection,
       dayOfYear,
       nearestPointDistance: 0,
     };

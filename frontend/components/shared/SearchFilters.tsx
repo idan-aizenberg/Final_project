@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useState, useEffect } from "react";
+import { useCallback, useState, useEffect, useMemo } from "react";
 import type { UseFormReturn } from "react-hook-form";
+import { AlertTriangle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,9 +32,10 @@ interface SearchFiltersProps {
     outputs?: Partial<Record<SearchFormValues["output"], boolean>>;
   };
   alertsEnabled?: boolean;
+  maxHorizonDays?: number;
 }
 
-export function SearchFilters({ form, presets, onSubmit, queryCost, queryLimit, isSubmitting, availability, alertsEnabled = true }: SearchFiltersProps) {
+export function SearchFilters({ form, presets, onSubmit, queryCost, queryLimit, isSubmitting, availability, alertsEnabled = true, maxHorizonDays = 365 }: SearchFiltersProps) {
   const { register, handleSubmit, setValue, watch } = form;
   const resolution = watch("resolution");
   const forecastType = watch("forecastType");
@@ -41,6 +43,8 @@ export function SearchFilters({ form, presets, onSubmit, queryCost, queryLimit, 
   const units = watch("units");
   const autoAlert = watch("autoAlert");
   const location = watch("location");
+  const startDate = watch("range.start");
+  const endDate = watch("range.end");
   const remaining = queryLimit === "unlimited" ? Infinity : queryLimit - queryCost;
   const canDownload = output === "download" ? queryLimit === "unlimited" || remaining > 0 : true;
   const forecastAvailability = availability?.forecast ?? {};
@@ -49,6 +53,60 @@ export function SearchFilters({ form, presets, onSubmit, queryCost, queryLimit, 
   const [suggestions, setSuggestions] = useState<LocationSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+  
+  // Date range validation
+  const [dateError, setDateError] = useState<string>("");
+  const [horizonError, setHorizonError] = useState<string>("");
+
+  // Validate date range whenever start or end date changes
+  useEffect(() => {
+    if (!startDate || !endDate) {
+      setDateError("Both start and end dates are required");
+      setHorizonError("");
+      return;
+    }
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    // Check if end >= start
+    if (end < start) {
+      setDateError("End date must be on or after start date");
+      setHorizonError("");
+      return;
+    }
+
+    setDateError("");
+
+    // Calculate range in days
+    const rangeDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+
+    // Check horizon limit
+    if (rangeDays > maxHorizonDays) {
+      setHorizonError(`Your plan allows up to ${maxHorizonDays} days. Please shorten the range or upgrade.`);
+    } else {
+      setHorizonError("");
+    }
+  }, [startDate, endDate, maxHorizonDays]);
+
+  // Calculate if the form is valid for submission
+  const hasDateValidationError = Boolean(dateError || horizonError);
+  const canSubmitForm = !isSubmitting && !hasDateValidationError && canDownload;
+
+  // Helper text for date range
+  const dateRangeHelperText = useMemo(() => {
+    if (!startDate || !endDate) return "You can search a range. Set start and end dates.";
+    
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    if (start.getTime() === end.getTime()) {
+      return "Single-day query";
+    }
+    
+    const rangeDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    return `${rangeDays}-day range query`;
+  }, [startDate, endDate]);
 
   // Geocode location when user types
   useEffect(() => {
@@ -180,6 +238,26 @@ export function SearchFilters({ form, presets, onSubmit, queryCost, queryLimit, 
               <Label htmlFor="end">End date</Label>
               <Input id="end" type="date" {...register("range.end", { required: true })} />
             </div>
+          </div>
+          {/* Date range validation messages */}
+          <div className="space-y-2">
+            {dateError && (
+              <p className="text-sm text-destructive flex items-center gap-1">
+                <AlertTriangle className="h-3.5 w-3.5" />
+                {dateError}
+              </p>
+            )}
+            {horizonError && (
+              <p className="text-sm text-amber-600 flex items-center gap-1">
+                <AlertTriangle className="h-3.5 w-3.5" />
+                {horizonError}
+              </p>
+            )}
+            {!dateError && !horizonError && (
+              <p className="text-xs text-muted-foreground">
+                {dateRangeHelperText}
+              </p>
+            )}
           </div>
 
           <div className="grid gap-4 sm:grid-cols-3">
@@ -314,7 +392,7 @@ export function SearchFilters({ form, presets, onSubmit, queryCost, queryLimit, 
           <Button type="reset" variant="ghost" className="rounded-full" onClick={() => form.reset()}>
             Reset
           </Button>
-          <Button type="submit" className="rounded-full" disabled={isSubmitting || !canDownload}>
+          <Button type="submit" className="rounded-full" disabled={!canSubmitForm}>
             {isSubmitting ? "Running query..." : "Run forecast"}
           </Button>
         </div>

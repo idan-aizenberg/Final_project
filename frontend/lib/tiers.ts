@@ -8,14 +8,25 @@ export interface TierDefinition {
   horizonDays: number;
   features: string[];
   gating: {
-    probabilistic: boolean;
-    extremeEvents: boolean;
+    /** Core metrics: temperature, precipitation - always available */
+    coreMetrics: boolean;
+    /** Extended metrics: humidity, wind, solar radiation */
+    extendedMetrics: boolean;
+    /** Single-model probabilistic trends */
+    probabilisticBasic: boolean;
+    /** Multi-model blending and comparison */
+    probabilisticAdvanced: boolean;
+    /** Moderate-risk extreme weather */
+    extremeEventsModerate: boolean;
+    /** High-risk real-time extreme weather */
+    extremeEventsRealtime: boolean;
     exports: Array<"csv" | "pdf" | "excel">;
     alerts: Array<"email" | "sms" | "push">;
     dashboards: number | "all";
     maxLocations: number | "unlimited";
     apiAccess: boolean;
     prioritySupport: boolean;
+    priorityProcessing: boolean;
   };
   pricing: {
     monthly: number;
@@ -28,25 +39,30 @@ export const tiers: Record<TierId, TierDefinition> = {
   basic: {
     id: "basic",
     name: "Basic",
-    description: "For quick weather checks and ad-hoc decisions.",
+    description: "Free tier for quick weather checks.",
     queriesPerDay: 3,
     horizonDays: 14,
     features: [
       "3 queries per day",
       "14-day forecast horizon",
+      "Temperature & precipitation only",
       "Single location",
-      "Core weather metrics",
       "Community support",
     ],
     gating: {
-      probabilistic: false,
-      extremeEvents: false,
+      coreMetrics: true,
+      extendedMetrics: false,
+      probabilisticBasic: false,
+      probabilisticAdvanced: false,
+      extremeEventsModerate: false,
+      extremeEventsRealtime: false,
       exports: [],
       alerts: [],
       dashboards: 0,
       maxLocations: 1,
       apiAccess: false,
       prioritySupport: false,
+      priorityProcessing: false,
     },
     pricing: {
       monthly: 0,
@@ -57,25 +73,31 @@ export const tiers: Record<TierId, TierDefinition> = {
   standard: {
     id: "standard",
     name: "Standard",
-    description: "For growing teams planning multiple operations.",
-    queriesPerDay: 50,
+    description: "For operational weather tracking with extended metrics.",
+    queriesPerDay: 10,
     horizonDays: 30,
     features: [
-      "50 queries per day",
+      "10 queries per day",
       "30-day forecast horizon",
+      "Humidity, wind & solar radiation",
+      "Single-model probabilities",
       "Up to 5 saved locations",
-      "Probabilistic insights",
       "Email support",
     ],
     gating: {
-      probabilistic: true,
-      extremeEvents: false,
+      coreMetrics: true,
+      extendedMetrics: true,
+      probabilisticBasic: true,
+      probabilisticAdvanced: false,
+      extremeEventsModerate: false,
+      extremeEventsRealtime: false,
       exports: [],
       alerts: [],
       dashboards: 0,
       maxLocations: 5,
       apiAccess: false,
       prioritySupport: false,
+      priorityProcessing: false,
     },
     pricing: {
       monthly: 89,
@@ -86,29 +108,34 @@ export const tiers: Record<TierId, TierDefinition> = {
   professional: {
     id: "professional",
     name: "Professional",
-    description: "Advanced planning with probabilistic insights and alerts.",
-    queriesPerDay: 200,
+    description: "Advanced planning with exports, alerts, and probabilistic insights.",
+    queriesPerDay: 100,
     horizonDays: 180,
     features: [
-      "200 queries per day",
+      "100 queries per day",
       "180-day forecast horizon",
-      "Up to 25 saved locations",
-      "Probabilistic insights",
-      "Extreme event scouting",
-      "CSV/PDF/Excel exports",
+      "Visual confidence intervals",
+      "Moderate-risk extreme weather",
+      "CSV, PDF & Excel exports",
       "Email alerts",
       "1 industry dashboard",
+      "Up to 25 saved locations",
       "Priority support",
     ],
     gating: {
-      probabilistic: true,
-      extremeEvents: true,
+      coreMetrics: true,
+      extendedMetrics: true,
+      probabilisticBasic: true,
+      probabilisticAdvanced: true,
+      extremeEventsModerate: true,
+      extremeEventsRealtime: false,
       exports: ["csv", "pdf", "excel"],
       alerts: ["email"],
       dashboards: 1,
       maxLocations: 25,
       apiAccess: false,
       prioritySupport: true,
+      priorityProcessing: false,
     },
     pricing: {
       monthly: 249,
@@ -119,32 +146,37 @@ export const tiers: Record<TierId, TierDefinition> = {
   enterprise: {
     id: "enterprise",
     name: "Enterprise",
-    description: "Mission-critical operations with real-time responses.",
+    description: "Mission-critical operations with real-time alerts and API access.",
     queriesPerDay: "unlimited",
     horizonDays: 365,
     features: [
       "Unlimited queries",
       "365-day forecast horizon",
-      "Unlimited saved locations",
-      "All probabilistic features",
-      "Extreme event scouting",
-      "All export formats",
-      "Email, SMS & Push alerts",
+      "Multi-model blending",
+      "Real-time high-risk alerts",
+      "SMS, Email & Push notifications",
       "All industry dashboards",
-      "API access",
+      "API integration",
+      "Priority processing (QoS)",
+      "Unlimited saved locations",
       "24/7 dedicated support",
       "Custom integrations",
       "SLA guarantee",
     ],
     gating: {
-      probabilistic: true,
-      extremeEvents: true,
+      coreMetrics: true,
+      extendedMetrics: true,
+      probabilisticBasic: true,
+      probabilisticAdvanced: true,
+      extremeEventsModerate: true,
+      extremeEventsRealtime: true,
       exports: ["csv", "pdf", "excel"],
       alerts: ["email", "sms", "push"],
       dashboards: "all",
       maxLocations: "unlimited",
       apiAccess: true,
       prioritySupport: true,
+      priorityProcessing: true,
     },
     pricing: {
       monthly: 0, // Contact sales
@@ -158,6 +190,18 @@ export const tierOrder: TierId[] = ["basic", "standard", "professional", "enterp
 
 export function getTierById(id: TierId): TierDefinition {
   return tiers[id];
+}
+
+export function canAccessExtendedMetrics(tier: TierId): boolean {
+  return tiers[tier].gating.extendedMetrics;
+}
+
+export function canAccessProbabilisticBasic(tier: TierId): boolean {
+  return tiers[tier].gating.probabilisticBasic;
+}
+
+export function canAccessProbabilisticAdvanced(tier: TierId): boolean {
+  return tiers[tier].gating.probabilisticAdvanced;
 }
 
 export function isExportAllowed(tier: TierId, format: "csv" | "pdf" | "excel"): boolean {

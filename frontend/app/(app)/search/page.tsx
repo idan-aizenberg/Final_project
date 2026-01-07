@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
-import { Search, MapPin, Calendar, Thermometer, Grid3x3, AlertTriangle, Zap, Crown, Clock, Bookmark, BookmarkPlus, Droplets, Snowflake, Sun } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Search, MapPin, Calendar, Thermometer, Grid3x3, AlertTriangle, Zap, Crown, Clock, Bookmark, BookmarkPlus, Droplets, Snowflake, Sun, Wind, TrendingUp } from "lucide-react";
 import { geocodeLocation, searchLocationSuggestions, type LocationSuggestion } from "@/lib/geocoding";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { format, addDays, differenceInDays } from "date-fns";
@@ -19,6 +20,7 @@ import dynamic from "next/dynamic";
 import { fetchSavedSearches, markSearchAsUsed, type SavedSearch } from "@/lib/api";
 import { SaveSearchDialog } from "@/components/shared/SaveSearchDialog";
 import { SavedSearchesList } from "@/components/shared/SavedSearchesList";
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
 // Dynamically import map to avoid SSR issues with Leaflet
 const WeatherMap = dynamic(
@@ -36,10 +38,16 @@ interface WeatherData {
   precipitationSum?: number;
   snowfallAmount?: number;
   solarRadiation?: number;
+  windSpeed?: number;
+  windDirection?: number;
   dayOfYear: number;
+  date?: string; // ISO date string
   cityName?: string;
   displayName?: string;
   searchedLocation?: { lat: number; lon: number };
+  isForecastRange?: boolean; // For multi-day forecasts
+  totalDays?: number; // Total days in range
+  dayNumber?: number; // Current day number in range
 }
 
 function getCurrentDayOfYear(): number {
@@ -68,13 +76,133 @@ function getDayOfYearDate(dayOfYear: number): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+function getWindDirectionLabel(degrees: number): string {
+  const directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+  const index = Math.round(degrees / 22.5) % 16;
+  return directions[index];
+}
+
+/**
+ * Convert solar radiation from J/m² to kWh/m² for display
+ * Raw data is stored in J/m² (cumulative daily solar radiation)
+ * Display formula: kWh/m² = J/m² / 3,600,000
+ */
+function formatSolarRadiation(joules: number | undefined): { 
+  value: string; 
+  whValue: string; 
+  label: string; 
+  labelColor: string;
+  percent: number;
+} {
+  if (joules === undefined || joules === null) {
+    return { value: '--', whValue: '--', label: 'No data', labelColor: 'text-muted-foreground', percent: 0 };
+  }
+  if (joules === 0) {
+    return { value: '0', whValue: '0', label: 'Night/None', labelColor: 'text-slate-500', percent: 0 };
+  }
+  // Convert J/m² to kWh/m²
+  const kwhPerM2 = joules / 3_600_000;
+  // Convert J/m² to Wh/m² for secondary display
+  const whPerM2 = joules / 3600;
+  
+  // Qualitative thresholds (kWh/m² daily totals)
+  // Low: < 2 kWh/m², Moderate: 2-5 kWh/m², High: 5-7 kWh/m², Very High: > 7 kWh/m²
+  let label: string;
+  let labelColor: string;
+  let percent: number;
+  
+  if (kwhPerM2 < 2) {
+    label = 'Low';
+    labelColor = 'text-slate-500';
+    percent = (kwhPerM2 / 2) * 25;
+  } else if (kwhPerM2 < 5) {
+    label = 'Moderate';
+    labelColor = 'text-amber-600';
+    percent = 25 + ((kwhPerM2 - 2) / 3) * 35;
+  } else if (kwhPerM2 < 7) {
+    label = 'High';
+    labelColor = 'text-orange-500';
+    percent = 60 + ((kwhPerM2 - 5) / 2) * 25;
+  } else {
+    label = 'Very High';
+    labelColor = 'text-red-500';
+    percent = Math.min(100, 85 + ((kwhPerM2 - 7) / 3) * 15);
+  }
+  
+  return {
+    value: kwhPerM2.toFixed(2),
+    whValue: whPerM2.toFixed(0),
+    label,
+    labelColor,
+    percent: Math.min(100, Math.max(0, percent))
+  };
+}
+
+/**
+ * Generate a dynamic weather summary sentence
+ */
+function generateWeatherSummary(data: WeatherData): string {
+  const parts: string[] = [];
+  
+  // Temperature description
+  const temp = data.temperature;
+  let tempDesc: string;
+  if (temp < 0) tempDesc = 'Freezing';
+  else if (temp < 10) tempDesc = 'Cold';
+  else if (temp < 18) tempDesc = 'Cool';
+  else if (temp < 25) tempDesc = 'Mild';
+  else if (temp < 32) tempDesc = 'Warm';
+  else tempDesc = 'Hot';
+  parts.push(`${tempDesc} day`);
+  
+  // Solar radiation
+  if (data.solarRadiation !== undefined) {
+    const solar = formatSolarRadiation(data.solarRadiation);
+    if (solar.label !== 'No data' && solar.label !== 'Night/None') {
+      parts.push(`${solar.label.toLowerCase()} solar exposure`);
+    }
+  }
+  
+  // Precipitation
+  if (data.precipitationSum !== undefined && data.precipitationSum > 0) {
+    if (data.precipitationSum < 2.5) parts.push('light precipitation');
+    else if (data.precipitationSum < 7.5) parts.push('moderate precipitation');
+    else parts.push('heavy precipitation');
+  }
+  
+  // Snowfall
+  if (data.snowfallAmount !== undefined && data.snowfallAmount > 0) {
+    if (data.snowfallAmount < 5) parts.push('light snow');
+    else if (data.snowfallAmount < 15) parts.push('moderate snow');
+    else parts.push('heavy snow');
+  }
+  
+  // Wind
+  if (data.windSpeed !== undefined && data.windSpeed > 0) {
+    const windKmh = data.windSpeed * 3.6;
+    if (windKmh < 12) parts.push('calm winds');
+    else if (windKmh < 30) parts.push('light breeze');
+    else if (windKmh < 50) parts.push('moderate wind');
+    else parts.push('strong wind');
+  }
+  
+  // Join with proper grammar
+  if (parts.length === 1) return parts[0] + '.';
+  if (parts.length === 2) return parts.join(' with ') + '.';
+  const last = parts.pop();
+  return parts.join(', ') + ', and ' + last + '.';
+}
+
 export default function SearchPage() {
   const [location, setLocation] = useState("");
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
   const [dayOfYear, setDayOfYear] = useState(getCurrentDayOfYear());
   const [selectedDate, setSelectedDate] = useState<Date>(getDateFromDayOfYear(getCurrentDayOfYear()));
+  const [endDate, setEndDate] = useState<Date>(getDateFromDayOfYear(getCurrentDayOfYear()));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [multiDayData, setMultiDayData] = useState<any[]>([]); // Store multi-day forecast results
+  const [selectedDayIndex, setSelectedDayIndex] = useState(0); // Track selected day for display
   
   // Tier-related state
   const { 
@@ -153,7 +281,7 @@ export default function SearchPage() {
     }
 
     // Check horizon limit
-    const daysFromNow = differenceInDays(selectedDate, new Date());
+    const daysFromNow = differenceInDays(endDate, new Date());
     if (daysFromNow > maxHorizonDays) {
       toast({
         title: "Horizon limit exceeded",
@@ -167,36 +295,99 @@ export default function SearchPage() {
     setError("");
 
     try {
-      const response = await fetch(
-        `/api/weather/query?lat=${lat}&lon=${lon}&day=${dayOfYear}`
-      );
+      // Format dates as YYYY-MM-DD
+      const startDateStr = format(selectedDate, 'yyyy-MM-dd');
+      const endDateStr = format(endDate, 'yyyy-MM-dd');
+      
+      // Check if it's a single-day or multi-day query
+      const isSingleDay = selectedDate.getTime() === endDate.getTime();
+      
+      if (isSingleDay) {
+        // Use the existing single-day API
+        const response = await fetch(
+          `/api/weather/query?lat=${lat}&lon=${lon}&day=${dayOfYear}`
+        );
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to fetch weather data');
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to fetch weather data');
+        }
+
+        const data = await response.json();
+
+        setWeatherData({
+          ...data,
+          cityName: cityName,
+          displayName: displayName,
+          searchedLocation: { lat, lon },
+        });
+        
+        toast({
+          title: "Forecast loaded",
+          description: queriesRemaining === "unlimited" 
+            ? "Unlimited queries available"
+            : `${typeof queriesRemaining === 'number' ? queriesRemaining - 1 : queriesRemaining} queries remaining today`,
+        });
+      } else {
+        // Use the new forecast API for date ranges
+        const response = await fetch(
+          `/api/weather/forecast?lat=${lat}&lon=${lon}&startDate=${startDateStr}&endDate=${endDateStr}`
+        );
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to fetch weather forecast');
+        }
+
+        const data = await response.json();
+
+        // For multi-day queries, store all days and show the first day in the current display
+        const dayCount = data.results.length;
+        
+        // Enrich each day with additional metadata
+        const enrichedResults = (data.results || []).map((dayData: any, index: number) => ({
+          ...dayData,
+          cityName: cityName,
+          displayName: displayName,
+          searchedLocation: { lat, lon },
+          dayNumber: index + 1,
+        }));
+        
+        // Store all multi-day data for visualization
+        setMultiDayData(enrichedResults);
+        setSelectedDayIndex(0);
+        
+        // Store the full forecast data in localStorage temporarily
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('lastForecastData', JSON.stringify({
+            ...data,
+            cityName,
+            displayName,
+            isForecastRange: true,
+            enrichedResults,
+          }));
+        }
+
+        // Show the first day's data in the current view
+        if (enrichedResults.length > 0) {
+          setWeatherData({
+            ...enrichedResults[0],
+            isForecastRange: true,
+            totalDays: dayCount,
+          });
+        }
+        
+        toast({
+          title: "Multi-day forecast loaded",
+          description: `Retrieved ${dayCount}-day forecast from ${format(selectedDate, 'MMM d')} to ${format(endDate, 'MMM d')}`,
+        });
       }
-
-      const data = await response.json();
-
-      setWeatherData({
-        ...data,
-        cityName: cityName,
-        displayName: displayName,
-        searchedLocation: { lat, lon },
-      });
 
       // Store last search coordinates for saving
       setLastSearchCoords({ lat, lon });
 
       // Increment query usage after successful search
       incrementQueryUsage();
-      
-      toast({
-        title: "Forecast loaded",
-        description: queriesRemaining === "unlimited" 
-          ? "Unlimited queries available"
-          : `${typeof queriesRemaining === 'number' ? queriesRemaining - 1 : queriesRemaining} queries remaining today`,
-      });
     } catch (err: any) {
       setError(err.message || 'An error occurred');
       console.error('Search error:', err);
@@ -264,6 +455,39 @@ export default function SearchPage() {
       setSelectedDate(date);
       const newDayOfYear = getDayOfYearFromDate(date);
       setDayOfYear(newDayOfYear);
+      
+      // If end date is before new start date, update end date to match
+      if (endDate < date) {
+        setEndDate(date);
+      }
+    }
+  };
+
+  // Handle end date change from calendar
+  const handleEndDateChange = (date: Date | undefined) => {
+    if (date) {
+      // Check if date is within horizon limit
+      const daysFromNow = differenceInDays(date, new Date());
+      if (daysFromNow > maxHorizonDays) {
+        toast({
+          title: "Date beyond horizon",
+          description: `Upgrade to access forecasts beyond ${maxHorizonDays} days.`,
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Check if end date is before start date
+      if (selectedDate && date < selectedDate) {
+        toast({
+          title: "Invalid date range",
+          description: "End date must be on or after start date.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      setEndDate(date);
     }
   };
 
@@ -275,6 +499,30 @@ export default function SearchPage() {
       }
     };
   }, []);
+
+  // Calculate range summary statistics for multi-day forecasts
+  const rangeSummary = useMemo(() => {
+    if (multiDayData.length === 0) return null;
+
+    const temps = multiDayData.map((d) => d.temperature).filter((t) => t !== undefined);
+    const maxTemps = multiDayData.map((d) => d.maxTemperature).filter((t) => t !== undefined);
+    const minTemps = multiDayData.map((d) => d.minTemperature).filter((t) => t !== undefined);
+    const precip = multiDayData.map((d) => d.precipitationSum || 0);
+    const snow = multiDayData.map((d) => d.snowfallAmount || 0);
+    const wind = multiDayData.map((d) => d.windSpeed || 0);
+    const solar = multiDayData.map((d) => d.solarRadiation || 0);
+
+    return {
+      avgTemp: temps.length > 0 ? (temps.reduce((a, b) => a + b, 0) / temps.length).toFixed(1) : "--",
+      minTemp: minTemps.length > 0 ? Math.min(...minTemps).toFixed(1) : "--",
+      maxTemp: maxTemps.length > 0 ? Math.max(...maxTemps).toFixed(1) : "--",
+      totalPrecip: (precip.reduce((a, b) => a + b, 0)).toFixed(1),
+      totalSnow: (snow.reduce((a, b) => a + b, 0)).toFixed(1),
+      avgWind: wind.length > 0 ? ((wind.reduce((a, b) => a + b, 0) / wind.length) * 3.6).toFixed(0) : "--",
+      totalSolar: (solar.reduce((a, b) => a + b, 0) / 3_600_000).toFixed(2), // Convert J/m² to kWh/m²
+      dayCount: multiDayData.length,
+    };
+  }, [multiDayData]);
 
   // Close suggestions when clicking outside
   useEffect(() => {
@@ -290,6 +538,23 @@ export default function SearchPage() {
       return () => document.removeEventListener('click', handleClickOutside);
     }
   }, [showSuggestions]);
+
+  // Prepare chart data for multi-day visualization
+  const chartData = useMemo(() => {
+    if (multiDayData.length === 0) return [];
+    
+    return multiDayData.map((day, index) => ({
+      date: format(new Date(day.date || getDateFromDayOfYear(day.dayOfYear)), 'MMM d'),
+      day: `Day ${index + 1}`,
+      temperature: parseFloat((day.temperature || 0).toFixed(1)),
+      minTemp: parseFloat((day.minTemperature || 0).toFixed(1)),
+      maxTemp: parseFloat((day.maxTemperature || 0).toFixed(1)),
+      precipitation: parseFloat((day.precipitationSum || 0).toFixed(1)),
+      snowfall: parseFloat((day.snowfallAmount || 0).toFixed(1)),
+      windSpeed: parseFloat(((day.windSpeed || 0) * 3.6).toFixed(1)),
+      solarRadiation: parseFloat(((day.solarRadiation || 0) / 3_600_000).toFixed(2)),
+    }));
+  }, [multiDayData]);
 
   const handleMapClick = async (lat: number, lon: number) => {
     await executeSearch(lat, lon);
@@ -436,8 +701,9 @@ export default function SearchPage() {
                   </Button>
                 </div>
 
-                {/* Date Picker */}
+                {/* Date Pickers - Start and End Date */}
                 <div className="flex gap-2 items-center">
+                  {/* Start Date */}
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button
@@ -449,7 +715,7 @@ export default function SearchPage() {
                         disabled={loading}
                       >
                         <Calendar className="mr-2 h-4 w-4" />
-                        {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
+                        {selectedDate ? format(selectedDate, "MMM d") : <span>Start</span>}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0 z-[9999]" align="end">
@@ -478,8 +744,65 @@ export default function SearchPage() {
                       )}
                     </PopoverContent>
                   </Popover>
+
+                  <span className="text-muted-foreground">→</span>
+
+                  {/* End Date */}
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "justify-start text-left font-normal",
+                          !endDate && "text-muted-foreground"
+                        )}
+                        disabled={loading}
+                      >
+                        <Calendar className="mr-2 h-4 w-4" />
+                        {endDate ? format(endDate, "MMM d") : <span>End</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 z-[9999]" align="end">
+                      <CalendarComponent
+                        mode="single"
+                        selected={endDate}
+                        onSelect={handleEndDateChange}
+                        defaultMonth={endDate}
+                        fromDate={selectedDate || new Date()}
+                        toDate={maxDate}
+                        disabled={(date) => {
+                          const daysFromNow = differenceInDays(date, new Date());
+                          const daysFromStart = selectedDate ? differenceInDays(date, selectedDate) : 0;
+                          return daysFromNow > maxHorizonDays || daysFromNow < 0 || daysFromStart < 0;
+                        }}
+                        initialFocus
+                      />
+                      {tier !== "enterprise" && (
+                        <div className="px-4 pb-3 pt-1 border-t">
+                          <p className="text-xs text-muted-foreground">
+                            Dates beyond {maxHorizonDays} days require{" "}
+                            <Link href="/pricing" className="text-primary hover:underline">
+                              plan upgrade
+                            </Link>
+                          </p>
+                        </div>
+                      )}
+                    </PopoverContent>
+                  </Popover>
                 </div>
               </div>
+              {/* Date Range Helper Text */}
+              {selectedDate && endDate && (
+                <div className="text-sm text-muted-foreground mt-2">
+                  {selectedDate.getTime() === endDate.getTime() ? (
+                    <span>Single-day query: {format(selectedDate, "MMM d, yyyy")}</span>
+                  ) : (
+                    <span>
+                      {differenceInDays(endDate, selectedDate) + 1}-day range: {format(selectedDate, "MMM d")} → {format(endDate, "MMM d, yyyy")}
+                    </span>
+                  )}
+                </div>
+              )}
               {error && (
                 <p className="text-sm text-destructive mt-2">{error}</p>
               )}
@@ -508,88 +831,331 @@ export default function SearchPage() {
                   )}
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-8 gap-4">
-                  <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Thermometer className="h-4 w-4 text-primary" />
-                      <p className="text-sm text-muted-foreground">Avg Temperature</p>
+              <CardContent className="space-y-6">
+                {/* Multi-day Forecast Banner */}
+                {weatherData.isForecastRange && weatherData.totalDays && weatherData.totalDays > 1 && (
+                  <>
+                    <div className="p-4 rounded-xl bg-gradient-to-r from-blue-500/10 via-blue-500/5 to-blue-500/10 border border-blue-500/30">
+                      <div className="flex items-center justify-between gap-4">
+                        <div>
+                          <p className="font-semibold text-blue-900 dark:text-blue-100">
+                            Multi-Day Forecast ({weatherData.totalDays} days)
+                          </p>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            Comprehensive {weatherData.totalDays}-day forecast with trends and aggregated statistics.
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                    <p className="text-3xl font-bold text-primary">
-                      {weatherData.temperature.toFixed(1)}°C
-                    </p>
-                  </div>
-                  <div className="p-4 rounded-lg bg-orange-500/10 border border-orange-500/20">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Thermometer className="h-4 w-4 text-orange-500" />
-                      <p className="text-sm text-muted-foreground">Max Temperature</p>
+
+                    {/* Range Summary Statistics */}
+                    {rangeSummary && (
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                        <div className="p-3 rounded-lg bg-red-500/5 border border-red-500/15">
+                          <p className="text-xs font-medium text-muted-foreground mb-1">Avg Temp</p>
+                          <p className="text-lg font-semibold text-red-600">{rangeSummary.avgTemp}°C</p>
+                        </div>
+                        <div className="p-3 rounded-lg bg-orange-500/5 border border-orange-500/15">
+                          <p className="text-xs font-medium text-muted-foreground mb-1">Max</p>
+                          <p className="text-lg font-semibold text-orange-600">{rangeSummary.maxTemp}°C</p>
+                        </div>
+                        <div className="p-3 rounded-lg bg-sky-500/5 border border-sky-500/15">
+                          <p className="text-xs font-medium text-muted-foreground mb-1">Min</p>
+                          <p className="text-lg font-semibold text-sky-600">{rangeSummary.minTemp}°C</p>
+                        </div>
+                        <div className="p-3 rounded-lg bg-blue-500/5 border border-blue-500/15">
+                          <p className="text-xs font-medium text-muted-foreground mb-1">Total Precip</p>
+                          <p className="text-lg font-semibold text-blue-600">{rangeSummary.totalPrecip} mm</p>
+                        </div>
+                        <div className="p-3 rounded-lg bg-indigo-500/5 border border-indigo-500/15">
+                          <p className="text-xs font-medium text-muted-foreground mb-1">Avg Wind</p>
+                          <p className="text-lg font-semibold text-indigo-600">{rangeSummary.avgWind} km/h</p>
+                        </div>
+                        <div className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/15">
+                          <p className="text-xs font-medium text-muted-foreground mb-1">Total Solar</p>
+                          <p className="text-lg font-semibold text-amber-600">{rangeSummary.totalSolar} kWh/m²</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Tabs for different visualization types */}
+                    <Tabs defaultValue="trends" className="w-full">
+                      <TabsList className="grid w-full grid-cols-4">
+                        <TabsTrigger value="trends" className="flex items-center gap-1">
+                          <TrendingUp className="h-4 w-4" />
+                          <span className="hidden sm:inline">Trends</span>
+                        </TabsTrigger>
+                        <TabsTrigger value="precipitation" className="flex items-center gap-1">
+                          <Droplets className="h-4 w-4" />
+                          <span className="hidden sm:inline">Precip</span>
+                        </TabsTrigger>
+                        <TabsTrigger value="wind" className="flex items-center gap-1">
+                          <Wind className="h-4 w-4" />
+                          <span className="hidden sm:inline">Wind</span>
+                        </TabsTrigger>
+                        <TabsTrigger value="breakdown" className="flex items-center gap-1">
+                          <Grid3x3 className="h-4 w-4" />
+                          <span className="hidden sm:inline">Days</span>
+                        </TabsTrigger>
+                      </TabsList>
+
+                      {/* Temperature Trends */}
+                      <TabsContent value="trends" className="space-y-4">
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>Temperature Trends</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <ResponsiveContainer width="100%" height={300}>
+                              <LineChart data={chartData}>
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis dataKey="date" />
+                                <YAxis label={{ value: 'Temperature (°C)', angle: -90, position: 'insideLeft' }} />
+                                <Tooltip formatter={(value: any) => value.toFixed(1)} />
+                                <Legend />
+                                <Line type="monotone" dataKey="temperature" stroke="#ef4444" strokeWidth={2} name="Avg Temp" />
+                                <Line type="monotone" dataKey="maxTemp" stroke="#f97316" strokeWidth={2} strokeDasharray="5 5" name="Max Temp" />
+                                <Line type="monotone" dataKey="minTemp" stroke="#0ea5e9" strokeWidth={2} strokeDasharray="5 5" name="Min Temp" />
+                              </LineChart>
+                            </ResponsiveContainer>
+                          </CardContent>
+                        </Card>
+                      </TabsContent>
+
+                      {/* Precipitation & Snowfall */}
+                      <TabsContent value="precipitation" className="space-y-4">
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>Precipitation & Snowfall</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <ResponsiveContainer width="100%" height={300}>
+                              <BarChart data={chartData}>
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis dataKey="date" />
+                                <YAxis label={{ value: 'Precipitation (mm)', angle: -90, position: 'insideLeft' }} />
+                                <Tooltip formatter={(value: any) => value.toFixed(1)} />
+                                <Legend />
+                                <Bar dataKey="precipitation" fill="#3b82f6" name="Precipitation (mm)" />
+                                <Bar dataKey="snowfall" fill="#06b6d4" name="Snowfall (mm)" />
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </CardContent>
+                        </Card>
+                      </TabsContent>
+
+                      {/* Wind Speed */}
+                      <TabsContent value="wind" className="space-y-4">
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>Wind Speed</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <ResponsiveContainer width="100%" height={300}>
+                              <BarChart data={chartData}>
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis dataKey="date" />
+                                <YAxis label={{ value: 'Wind Speed (km/h)', angle: -90, position: 'insideLeft' }} />
+                                <Tooltip formatter={(value: any) => value.toFixed(1)} />
+                                <Legend />
+                                <Bar dataKey="windSpeed" fill="#06b6d4" name="Wind Speed (km/h)" />
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </CardContent>
+                        </Card>
+                      </TabsContent>
+
+                      {/* Day-by-Day Breakdown */}
+                      <TabsContent value="breakdown" className="space-y-4">
+                        <div className="flex gap-2 pb-4 overflow-x-auto">
+                          {multiDayData.map((day, index) => (
+                            <Button
+                              key={index}
+                              variant={selectedDayIndex === index ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setSelectedDayIndex(index)}
+                              className="shrink-0"
+                            >
+                              Day {index + 1}
+                            </Button>
+                          ))}
+                        </div>
+                        {selectedDayIndex < multiDayData.length && (
+                          <Card>
+                            <CardHeader>
+                              <CardTitle>
+                                {format(new Date(multiDayData[selectedDayIndex].date || getDateFromDayOfYear(multiDayData[selectedDayIndex].dayOfYear)), 'EEEE, MMMM d, yyyy')}
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                <div className="p-3 rounded-lg bg-red-500/5 border border-red-500/15">
+                                  <p className="text-xs font-medium text-muted-foreground mb-1">Temperature</p>
+                                  <p className="text-xl font-semibold text-red-600">{multiDayData[selectedDayIndex].temperature?.toFixed(1)}°C</p>
+                                </div>
+                                <div className="p-3 rounded-lg bg-orange-500/5 border border-orange-500/15">
+                                  <p className="text-xs font-medium text-muted-foreground mb-1">Max</p>
+                                  <p className="text-xl font-semibold text-orange-600">{multiDayData[selectedDayIndex].maxTemperature?.toFixed(1) || '--'}°C</p>
+                                </div>
+                                <div className="p-3 rounded-lg bg-sky-500/5 border border-sky-500/15">
+                                  <p className="text-xs font-medium text-muted-foreground mb-1">Min</p>
+                                  <p className="text-xl font-semibold text-sky-600">{multiDayData[selectedDayIndex].minTemperature?.toFixed(1) || '--'}°C</p>
+                                </div>
+                                <div className="p-3 rounded-lg bg-blue-500/5 border border-blue-500/15">
+                                  <p className="text-xs font-medium text-muted-foreground mb-1">Precipitation</p>
+                                  <p className="text-xl font-semibold text-blue-600">{(multiDayData[selectedDayIndex].precipitationSum || 0).toFixed(1)} mm</p>
+                                </div>
+                                <div className="p-3 rounded-lg bg-indigo-500/5 border border-indigo-500/15">
+                                  <p className="text-xs font-medium text-muted-foreground mb-1">Wind Speed</p>
+                                  <p className="text-xl font-semibold text-indigo-600">{((multiDayData[selectedDayIndex].windSpeed || 0) * 3.6).toFixed(0)} km/h</p>
+                                </div>
+                                <div className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/15">
+                                  <p className="text-xs font-medium text-muted-foreground mb-1">Solar Radiation</p>
+                                  <p className="text-xl font-semibold text-amber-600">{((multiDayData[selectedDayIndex].solarRadiation || 0) / 3_600_000).toFixed(2)} kWh/m²</p>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        )}
+                      </TabsContent>
+                    </Tabs>
+                  </>
+                )}
+
+                {/* Dynamic Summary */}
+                <div className="p-4 rounded-xl bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 border border-primary/20">
+                  <p className="text-base font-medium text-foreground">
+                    {generateWeatherSummary(weatherData)}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {getDayOfYearDate(weatherData.dayOfYear)} • Grid {weatherData.gridIndex}
+                  </p>
+                </div>
+
+                {/* Primary Metrics - Temperature & Solar */}
+                <div>
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Primary Conditions</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {/* Avg Temperature - Hero card */}
+                    <div className="p-5 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 border-2 border-primary/30 shadow-sm">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Thermometer className="h-5 w-5 text-primary" />
+                        <p className="text-sm font-medium text-muted-foreground">Average</p>
+                      </div>
+                      <p className="text-4xl font-bold text-primary tracking-tight">
+                        {weatherData.temperature.toFixed(1)}<span className="text-2xl">°C</span>
+                      </p>
                     </div>
-                    <p className="text-3xl font-bold text-orange-500">
-                      {weatherData.maxTemperature ? weatherData.maxTemperature.toFixed(1) : '--'}°C
-                    </p>
-                  </div>
-                  <div className="p-4 rounded-lg bg-sky-500/10 border border-sky-500/20">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Thermometer className="h-4 w-4 text-sky-500" />
-                      <p className="text-sm text-muted-foreground">Min Temperature</p>
+                    {/* Max Temperature */}
+                    <div className="p-5 rounded-xl bg-gradient-to-br from-orange-500/15 to-orange-500/5 border-2 border-orange-500/30 shadow-sm">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Thermometer className="h-5 w-5 text-orange-500" />
+                        <p className="text-sm font-medium text-muted-foreground">Maximum</p>
+                      </div>
+                      <p className="text-4xl font-bold text-orange-500 tracking-tight">
+                        {weatherData.maxTemperature ? weatherData.maxTemperature.toFixed(1) : '--'}<span className="text-2xl">°C</span>
+                      </p>
                     </div>
-                    <p className="text-3xl font-bold text-sky-500">
-                      {weatherData.minTemperature ? weatherData.minTemperature.toFixed(1) : '--'}°C
-                    </p>
-                  </div>
-                  <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Droplets className="h-4 w-4 text-blue-500" />
-                      <p className="text-sm text-muted-foreground">Precipitation</p>
+                    {/* Min Temperature */}
+                    <div className="p-5 rounded-xl bg-gradient-to-br from-sky-500/15 to-sky-500/5 border-2 border-sky-500/30 shadow-sm">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Thermometer className="h-5 w-5 text-sky-500" />
+                        <p className="text-sm font-medium text-muted-foreground">Minimum</p>
+                      </div>
+                      <p className="text-4xl font-bold text-sky-500 tracking-tight">
+                        {weatherData.minTemperature ? weatherData.minTemperature.toFixed(1) : '--'}<span className="text-2xl">°C</span>
+                      </p>
                     </div>
-                    <p className="text-3xl font-bold text-blue-500">
-                      {weatherData.precipitationSum !== undefined ? weatherData.precipitationSum.toFixed(2) : '--'} mm
-                    </p>
-                  </div>
-                  <div className="p-4 rounded-lg bg-indigo-500/10 border border-indigo-500/20">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Snowflake className="h-4 w-4 text-indigo-500" />
-                      <p className="text-sm text-muted-foreground">Snowfall</p>
+                    {/* Solar Radiation - Enhanced */}
+                    <div className="p-5 rounded-xl bg-gradient-to-br from-amber-500/15 to-amber-500/5 border-2 border-amber-500/30 shadow-sm">
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-2">
+                          <Sun className="h-5 w-5 text-amber-500" />
+                          <p className="text-sm font-medium text-muted-foreground">Solar</p>
+                        </div>
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-500/20 ${formatSolarRadiation(weatherData.solarRadiation).labelColor}`}>
+                          {formatSolarRadiation(weatherData.solarRadiation).label}
+                        </span>
+                      </div>
+                      <p className="text-4xl font-bold text-amber-500 tracking-tight">
+                        {formatSolarRadiation(weatherData.solarRadiation).value}
+                        <span className="text-lg font-normal ml-1">kWh/m²</span>
+                      </p>
+                      {/* Progress bar */}
+                      <div className="mt-2 h-1.5 bg-amber-200/30 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-gradient-to-r from-amber-400 to-amber-500 rounded-full transition-all duration-500"
+                          style={{ width: `${formatSolarRadiation(weatherData.solarRadiation).percent}%` }}
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {weatherData.solarRadiation !== undefined && weatherData.solarRadiation > 0 && `${formatSolarRadiation(weatherData.solarRadiation).whValue} Wh/m²`}
+                      </p>
                     </div>
-                    <p className="text-3xl font-bold text-indigo-500">
-                      {weatherData.snowfallAmount !== undefined ? weatherData.snowfallAmount.toFixed(2) : '--'} mm
-                    </p>
-                  </div>
-                  <div className="p-4 rounded-lg bg-muted/50">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <p className="text-sm text-muted-foreground">Date</p>
-                    </div>
-                    <p className="text-xl font-semibold">Day {weatherData.dayOfYear}</p>
-                    <p className="text-xs text-muted-foreground">{getDayOfYearDate(weatherData.dayOfYear)}</p>
-                  </div>
-                  <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Sun className="h-4 w-4 text-amber-500" />
-                      <p className="text-sm text-muted-foreground">Solar Radiation</p>
-                    </div>
-                    <p className="text-3xl font-bold text-amber-500">
-                      {weatherData.solarRadiation !== undefined ? weatherData.solarRadiation.toFixed(1) : '--'}
-                    </p>
-                    <p className="text-xs text-muted-foreground">Units as provided</p>
-                  </div>
-                  <div className="p-4 rounded-lg bg-muted/50">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Grid3x3 className="h-4 w-4 text-muted-foreground" />
-                      <p className="text-sm text-muted-foreground">Grid Index</p>
-                    </div>
-                    <p className="text-xl font-semibold">{weatherData.gridIndex}</p>
                   </div>
                 </div>
-                <div className="grid grid-cols-1 gap-4 mt-4">
-                  <div className="p-4 rounded-lg bg-muted/50">
-                    <div className="flex items-center gap-2 mb-2">
-                      <MapPin className="h-4 w-4 text-muted-foreground" />
-                      <p className="text-sm text-muted-foreground">Grid Location</p>
+
+                {/* Secondary Metrics - Precipitation, Snow, Wind */}
+                <div>
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Weather Conditions</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {/* Precipitation */}
+                    <div className="p-4 rounded-lg bg-blue-500/5 border border-blue-500/15">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Droplets className="h-4 w-4 text-blue-500" />
+                        <p className="text-xs font-medium text-muted-foreground">Precipitation</p>
+                      </div>
+                      <p className="text-2xl font-semibold text-blue-600">
+                        {weatherData.precipitationSum !== undefined ? weatherData.precipitationSum.toFixed(1) : '--'}
+                        <span className="text-sm font-normal text-muted-foreground ml-1">mm</span>
+                      </p>
                     </div>
-                    <p className="text-sm font-mono">
+                    {/* Snowfall */}
+                    <div className="p-4 rounded-lg bg-indigo-500/5 border border-indigo-500/15">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Snowflake className="h-4 w-4 text-indigo-500" />
+                        <p className="text-xs font-medium text-muted-foreground">Snowfall</p>
+                      </div>
+                      <p className="text-2xl font-semibold text-indigo-600">
+                        {weatherData.snowfallAmount !== undefined ? weatherData.snowfallAmount.toFixed(1) : '--'}
+                        <span className="text-sm font-normal text-muted-foreground ml-1">mm</span>
+                      </p>
+                    </div>
+                    {/* Wind */}
+                    <div className="p-4 rounded-lg bg-teal-500/5 border border-teal-500/15">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Wind className="h-4 w-4 text-teal-500" />
+                        <p className="text-xs font-medium text-muted-foreground">Wind</p>
+                      </div>
+                      <p className="text-2xl font-semibold text-teal-600">
+                        {weatherData.windSpeed !== undefined ? (weatherData.windSpeed * 3.6).toFixed(0) : '--'}
+                        <span className="text-sm font-normal text-muted-foreground ml-1">km/h</span>
+                      </p>
+                      {weatherData.windDirection !== undefined && (
+                        <p className="text-xs text-muted-foreground">
+                          {getWindDirectionLabel(weatherData.windDirection)} ({weatherData.windSpeed?.toFixed(1)} m/s)
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Metadata Footer */}
+                <div className="flex flex-wrap items-center gap-4 pt-4 border-t border-border/50">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Calendar className="h-4 w-4" />
+                    <span>{getDayOfYearDate(weatherData.dayOfYear)}</span>
+                    <span className="text-xs">(Day {weatherData.dayOfYear})</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Grid3x3 className="h-4 w-4" />
+                    <span>Grid #{weatherData.gridIndex}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <MapPin className="h-4 w-4" />
+                    <span className="font-mono text-xs">
                       {weatherData.location.lat.toFixed(2)}°, {weatherData.location.lon.toFixed(2)}°
-                    </p>
+                    </span>
                   </div>
                 </div>
 

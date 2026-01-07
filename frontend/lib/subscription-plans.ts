@@ -1,82 +1,78 @@
 export interface SubscriptionPlan {
-  id: string
-  name: string
-  description: string
-  price: number
-  interval: 'monthly' | 'yearly'
-  features: string[]
-  popular?: boolean
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  interval: "monthly" | "yearly";
+  features: string[];
+  popular?: boolean;
 }
 
 export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
   {
-    id: 'basic',
-    name: 'Basic',
-    description: 'For quick weather checks and ad-hoc decisions',
+    id: "basic",
+    name: "Basic",
+    description: "Free tier for quick weather checks",
     price: 0,
-    interval: 'monthly',
+    interval: "monthly",
     features: [
-      'Core metrics',
-      'Single location',
-      'No exports',
-      'No alerts',
-      '3 queries per day'
-    ]
-  },
-  {
-    id: 'standard',
-    name: 'Standard',
-    description: 'For operational weather tracking',
-    price: 89,
-    interval: 'monthly',
-    features: [
-      'Unlimited queries',
-      'Multiple locations',
-      'CSV & PDF exports',
-      'Email & SMS alerts',
-      '30-day horizon'
+      "3 queries per day",
+      "14-day forecast horizon",
+      "Temperature & precipitation only",
+      "No exports or alerts",
     ],
-    popular: true
   },
   {
-    id: 'professional',
-    name: 'Professional',
-    description: 'For advanced forecasting needs',
+    id: "standard",
+    name: "Standard",
+    description: "For operational weather tracking",
+    price: 89,
+    interval: "monthly",
+    features: [
+      "10 queries per day",
+      "30-day forecast horizon",
+      "Wind, solar & humidity",
+      "Single-model probabilities",
+    ],
+    popular: true,
+  },
+  {
+    id: "professional",
+    name: "Professional",
+    description: "For advanced forecasting needs",
     price: 249,
-    interval: 'monthly',
+    interval: "monthly",
     features: [
-      'Everything in Standard',
-      'Probabilistic insights',
-      'Extreme event scouting',
-      'All export formats',
-      'Advanced dashboards',
-      'Priority support'
-    ]
+      "100 queries per day",
+      "180-day forecast horizon",
+      "CSV, PDF & Excel exports",
+      "Email alerts",
+      "1 industry dashboard",
+    ],
   },
   {
-    id: 'enterprise',
-    name: 'Enterprise',
-    description: 'For large organizations',
+    id: "enterprise",
+    name: "Enterprise",
+    description: "For large organizations",
     price: 0,
-    interval: 'monthly',
+    interval: "monthly",
     features: [
-      'Everything in Professional',
-      'Dedicated account manager',
-      'Custom integrations',
-      '24/7 phone support',
-      'SLA guarantee',
-      'White-label options'
-    ]
-  }
-]
+      "Unlimited queries",
+      "365-day forecast horizon",
+      "Multi-model blending",
+      "SMS, Email & Push alerts",
+      "API access",
+    ],
+  },
+];
 
 export function getPlanById(id: string): SubscriptionPlan | undefined {
-  return SUBSCRIPTION_PLANS.find(plan => plan.id === id)
+  return SUBSCRIPTION_PLANS.find((plan) => plan.id === id);
 }
 
 export function formatPrice(price: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD'
-  }).format(price)
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+  }).format(price);
 }

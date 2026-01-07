@@ -16,6 +16,9 @@ export interface TierContextValue {
   canPerformQuery: () => boolean;
   queriesRemaining: number | "unlimited";
   canAccessFeature: (feature: keyof typeof tiers[TierId]["gating"]) => boolean;
+  canAccessExtendedMetrics: () => boolean;
+  canAccessProbabilisticBasic: () => boolean;
+  canAccessProbabilisticAdvanced: () => boolean;
   canExport: (format: "csv" | "pdf" | "excel") => boolean;
   canUseAlertChannel: (channel: "email" | "sms" | "push") => boolean;
   maxHorizonDays: number;
@@ -92,9 +95,9 @@ export function TierProvider({ children }: { children: ReactNode }) {
     return queriesUsedToday < tierDefinition.queriesPerDay;
   };
 
-  const queriesRemaining = useMemo(() => {
+  const queriesRemaining = useMemo((): number | "unlimited" => {
     if (tierDefinition.queriesPerDay === "unlimited") return "unlimited";
-    return Math.max(0, tierDefinition.queriesPerDay - queriesUsedToday);
+    return Math.max(0, tierDefinition.queriesPerDay - queriesUsedToday) as number;
   }, [tierDefinition.queriesPerDay, queriesUsedToday]);
 
   const canAccessFeature = (feature: keyof typeof tierDefinition.gating): boolean => {
@@ -104,6 +107,21 @@ export function TierProvider({ children }: { children: ReactNode }) {
     if (value === "all") return true;
     if (typeof value === "number") return value > 0;
     return false;
+  };
+
+  /** Check if user can access extended metrics (wind, solar, humidity) */
+  const canAccessExtendedMetrics = (): boolean => {
+    return tierDefinition.gating.extendedMetrics;
+  };
+
+  /** Check if user can access basic probabilistic features (single-model) */
+  const canAccessProbabilisticBasic = (): boolean => {
+    return tierDefinition.gating.probabilisticBasic;
+  };
+
+  /** Check if user can access advanced probabilistic features (multi-model) */
+  const canAccessProbabilisticAdvanced = (): boolean => {
+    return tierDefinition.gating.probabilisticAdvanced;
   };
 
   const canExport = (format: "csv" | "pdf" | "excel"): boolean => {
@@ -135,6 +153,9 @@ export function TierProvider({ children }: { children: ReactNode }) {
       canPerformQuery,
       queriesRemaining,
       canAccessFeature,
+      canAccessExtendedMetrics,
+      canAccessProbabilisticBasic,
+      canAccessProbabilisticAdvanced,
       canExport,
       canUseAlertChannel,
       maxHorizonDays,

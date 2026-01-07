@@ -76,6 +76,7 @@ export default function ResultsPage() {
   const precipUnit = (searchParams.get("precip") as "mm" | "in") ?? "mm";
   const { tier, tierDefinition, canExport, canAccessFeature } = useTier();
   const [exporting, setExporting] = useState<string | null>(null);
+  const [selectedDayIndex, setSelectedDayIndex] = useState<number>(0);
 
   const resultQuery = useQuery({
     queryKey: ["forecast-result", resultId],
@@ -169,6 +170,31 @@ export default function ResultsPage() {
   }
 
   const result = resultQuery.data;
+  
+  // Determine if this is a multi-day range
+  const isRangeQuery = result.metrics.length > 1;
+  const selectedMetric = result.metrics[selectedDayIndex] || result.metrics[0];
+  
+  // Calculate range summary (aggregated across all days)
+  const rangeSummary = useMemo(() => {
+    if (!isRangeQuery || result.metrics.length === 0) return null;
+    
+    const temps = result.metrics.map(m => m.avgTemp);
+    const mins = result.metrics.map(m => m.minTemp);
+    const maxs = result.metrics.map(m => m.maxTemp);
+    const precips = result.metrics.map(m => m.precipMm);
+    const winds = result.metrics.map(m => m.windSpeed);
+    
+    return {
+      avgTemp: temps.reduce((a, b) => a + b, 0) / temps.length,
+      minTemp: Math.min(...mins),
+      maxTemp: Math.max(...maxs),
+      totalPrecip: precips.reduce((a, b) => a + b, 0),
+      avgWind: winds.reduce((a, b) => a + b, 0) / winds.length,
+      dayCount: result.metrics.length,
+    };
+  }, [result.metrics, isRangeQuery]);
+  
   const temperatureSeries = result.metrics.map((metric) => ({
     date: metric.date,
     minTemp: temperatureUnit === "f" ? metric.minTemp * 1.8 + 32 : metric.minTemp,
@@ -283,10 +309,80 @@ export default function ResultsPage() {
     <div className="space-y-8 pb-24">
       <PageHeader
         title={searchMeta?.location ?? "Forecast results"}
-        description="Explore probabilistic uncertainty, upcoming extreme events, and the metrics that drive operational confidence."
+        description={
+          isRangeQuery
+            ? `From ${formatDate(result.metrics[0].date)} to ${formatDate(result.metrics[result.metrics.length - 1].date)} (${result.metrics.length} days)`
+            : "Explore probabilistic uncertainty, upcoming extreme events, and the metrics that drive operational confidence."
+        }
         breadcrumbs={[{ label: "Dashboard", href: "/dashboard" }, { label: "Results" }]}
         actions={stickyActions}
       />
+
+      {/* Range Summary - Only show for multi-day queries */}
+      {isRangeQuery && rangeSummary && (
+        <Card className="rounded-3xl border border-primary/20 bg-primary/5">
+          <CardHeader>
+            <CardTitle>Range Summary</CardTitle>
+            <CardDescription>Aggregated statistics across the entire {rangeSummary.dayCount}-day forecast period</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-5">
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">Avg Temperature</p>
+                <p className="text-2xl font-semibold">{formatTemperature(rangeSummary.avgTemp, temperatureUnit)}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">Min Temperature</p>
+                <p className="text-2xl font-semibold text-blue-600">{formatTemperature(rangeSummary.minTemp, temperatureUnit)}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">Max Temperature</p>
+                <p className="text-2xl font-semibold text-red-600">{formatTemperature(rangeSummary.maxTemp, temperatureUnit)}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">Total Precipitation</p>
+                <p className="text-2xl font-semibold">{formatPrecip(rangeSummary.totalPrecip, precipUnit)}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">Avg Wind Speed</p>
+                <p className="text-2xl font-semibold">{Math.round(rangeSummary.avgWind)} km/h</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Day Navigation - Only show for multi-day queries */}
+      {isRangeQuery && (
+        <Card className="rounded-3xl border border-border/60 bg-background/70">
+          <CardHeader>
+            <CardTitle>Select Day</CardTitle>
+            <CardDescription>Click a day to view detailed metrics below</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-2">
+              {result.metrics.map((metric, index) => (
+                <Button
+                  key={metric.date}
+                  variant={selectedDayIndex === index ? "default" : "outline"}
+                  size="sm"
+                  className="rounded-full"
+                  onClick={() => setSelectedDayIndex(index)}
+                >
+                  {formatDate(metric.date)}
+                </Button>
+              ))}
+            </div>
+            {result.metrics[selectedDayIndex] ? (
+              <p className="mt-4 text-sm text-muted-foreground">
+                Showing details for <span className="font-semibold text-foreground">{formatDate(selectedMetric.date)}</span>
+              </p>
+            ) : (
+              <p className="mt-4 text-sm text-destructive">No data for this day</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Tabs defaultValue="overview" className="w-full">
         <TabsList>
@@ -346,6 +442,50 @@ export default function ResultsPage() {
               </ResponsiveContainer>
             </ChartPanel>
           </div>
+
+          {/* Per-Day Metrics - Show selected day details for range queries, or single day for single-day queries */}
+          {selectedMetric && (
+            <Card className="rounded-3xl border border-border/60 bg-background/70">
+              <CardHeader>
+                <CardTitle>
+                  {isRangeQuery ? `Day Details: ${formatDate(selectedMetric.date)}` : "Day Details"}
+                </CardTitle>
+                <CardDescription>
+                  {isRangeQuery 
+                    ? "Detailed metrics for the selected day" 
+                    : `Single-day forecast for ${formatDate(selectedMetric.date)}`}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
+                  <div className="rounded-2xl border border-border/60 bg-muted/30 p-4 space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground uppercase">Avg Temp</p>
+                    <p className="text-3xl font-bold">{formatTemperature(selectedMetric.avgTemp, temperatureUnit)}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Min: {formatTemperature(selectedMetric.minTemp, temperatureUnit)} / Max: {formatTemperature(selectedMetric.maxTemp, temperatureUnit)}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-border/60 bg-muted/30 p-4 space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground uppercase">Precipitation</p>
+                    <p className="text-3xl font-bold">{formatPrecip(selectedMetric.precipMm, precipUnit)}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Probability: {formatPercent(selectedMetric.precipProb, 0)}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-border/60 bg-muted/30 p-4 space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground uppercase">Wind Speed</p>
+                    <p className="text-3xl font-bold">{Math.round(selectedMetric.windSpeed)} km/h</p>
+                    <p className="text-xs text-muted-foreground">Humidity: {Math.round(selectedMetric.humidity)}%</p>
+                  </div>
+                  <div className="rounded-2xl border border-border/60 bg-muted/30 p-4 space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground uppercase">Other</p>
+                    <p className="text-lg font-semibold">UV: {selectedMetric.uv.toFixed(1)}</p>
+                    <p className="text-xs text-muted-foreground">Pressure: {Math.round(selectedMetric.pressure)} hPa</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
             <Card className="rounded-3xl border border-border/60 bg-background/70">

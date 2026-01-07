@@ -22,16 +22,16 @@ export function getNextTier(currentTier: TierId): TierId | null {
  * Get the minimum tier required for a specific feature
  */
 export function getMinimumTierForFeature(
-  feature: "probabilistic" | "extremeEvents" | "exports" | "alerts" | "dashboards"
+  feature: "extendedMetrics" | "probabilisticBasic" | "probabilisticAdvanced" | "extremeEventsModerate" | "extremeEventsRealtime" | "exports" | "alerts" | "dashboards"
 ): TierId {
   for (const tierId of tierOrder) {
     const tier = tiers[tierId];
     const value = tier.gating[feature];
     
-    if (feature === "probabilistic" || feature === "extremeEvents") {
+    if (typeof value === "boolean") {
       if (value === true) return tierId;
-    } else if (feature === "exports" || feature === "alerts") {
-      if (Array.isArray(value) && value.length > 0) return tierId;
+    } else if (Array.isArray(value)) {
+      if (value.length > 0) return tierId;
     } else if (feature === "dashboards") {
       if (value === "all" || (typeof value === "number" && value > 0)) return tierId;
     }
@@ -145,12 +145,29 @@ export function canUseAlertChannel(
 }
 
 /**
- * Check if user can access probabilistic insights
+ * Check if user can access extended metrics (wind, solar, humidity)
  */
-export function canAccessProbabilistic(tier: TierId): TierValidationResult {
+export function canAccessExtendedMetrics(tier: TierId): TierValidationResult {
   const tierDef = tiers[tier];
   
-  if (tierDef.gating.probabilistic) {
+  if (tierDef.gating.extendedMetrics) {
+    return { allowed: true };
+  }
+  
+  return {
+    allowed: false,
+    reason: "Wind, solar radiation, and humidity require Standard plan or higher",
+    upgradeRequired: "standard",
+  };
+}
+
+/**
+ * Check if user can access basic probabilistic insights (single-model)
+ */
+export function canAccessProbabilisticBasic(tier: TierId): TierValidationResult {
+  const tierDef = tiers[tier];
+  
+  if (tierDef.gating.probabilisticBasic) {
     return { allowed: true };
   }
   
@@ -162,19 +179,53 @@ export function canAccessProbabilistic(tier: TierId): TierValidationResult {
 }
 
 /**
- * Check if user can access extreme event scouting
+ * Check if user can access advanced probabilistic features (multi-model)
  */
-export function canAccessExtremeEvents(tier: TierId): TierValidationResult {
+export function canAccessProbabilisticAdvanced(tier: TierId): TierValidationResult {
   const tierDef = tiers[tier];
   
-  if (tierDef.gating.extremeEvents) {
+  if (tierDef.gating.probabilisticAdvanced) {
     return { allowed: true };
   }
   
   return {
     allowed: false,
-    reason: "Extreme event scouting requires Professional plan or higher",
+    reason: "Advanced probabilistic features require Professional plan or higher",
     upgradeRequired: "professional",
+  };
+}
+
+/**
+ * Check if user can access moderate-risk extreme events
+ */
+export function canAccessExtremeEventsModerate(tier: TierId): TierValidationResult {
+  const tierDef = tiers[tier];
+  
+  if (tierDef.gating.extremeEventsModerate) {
+    return { allowed: true };
+  }
+  
+  return {
+    allowed: false,
+    reason: "Extreme event predictions require Professional plan or higher",
+    upgradeRequired: "professional",
+  };
+}
+
+/**
+ * Check if user can access real-time high-risk extreme events
+ */
+export function canAccessExtremeEventsRealtime(tier: TierId): TierValidationResult {
+  const tierDef = tiers[tier];
+  
+  if (tierDef.gating.extremeEventsRealtime) {
+    return { allowed: true };
+  }
+  
+  return {
+    allowed: false,
+    reason: "Real-time extreme weather alerts require Enterprise plan",
+    upgradeRequired: "enterprise",
   };
 }
 
@@ -322,12 +373,12 @@ export function validateForecastQuery(
   
   // Check forecast type access
   if (params.forecastType === "probabilistic") {
-    const probCheck = canAccessProbabilistic(tier);
+    const probCheck = canAccessProbabilisticBasic(tier);
     if (!probCheck.allowed) return probCheck;
   }
   
   if (params.forecastType === "extreme") {
-    const extremeCheck = canAccessExtremeEvents(tier);
+    const extremeCheck = canAccessExtremeEventsModerate(tier);
     if (!extremeCheck.allowed) return extremeCheck;
   }
   
