@@ -72,10 +72,13 @@ export async function GET(request: NextRequest) {
         maxLocations: tierDef.gating.maxLocations,
       },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error fetching usage:", error);
     return NextResponse.json(
-      { error: "Failed to fetch usage data" },
+      { 
+        error: "Failed to fetch usage data",
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      },
       { status: 500 }
     );
   }
@@ -119,10 +122,13 @@ export async function POST(request: NextRequest) {
       remaining,
       limit: tierDef.queriesPerDay,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error incrementing usage:", error);
     return NextResponse.json(
-      { error: "Failed to increment usage" },
+      { 
+        error: "Failed to increment usage",
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      },
       { status: 500 }
     );
   }
@@ -143,10 +149,13 @@ export async function DELETE(request: NextRequest) {
       success: true,
       message: "Usage reset successfully",
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error resetting usage:", error);
     return NextResponse.json(
-      { error: "Failed to reset usage" },
+      { 
+        error: "Failed to reset usage",
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      },
       { status: 500 }
     );
   }

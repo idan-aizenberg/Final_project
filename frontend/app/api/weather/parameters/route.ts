@@ -11,22 +11,28 @@ export async function GET(request: Request) {
     const endDay = parseInt(searchParams.get('endDay') || '365');
     const minTemp = searchParams.get('minTemp');
     const maxTemp = searchParams.get('maxTemp');
-    const minMaxTemp = searchParams.get('minMaxTemp');
-    const maxMaxTemp = searchParams.get('maxMaxTemp');
+    const minWindSpeed = searchParams.get('minWindSpeed');
+    const maxWindSpeed = searchParams.get('maxWindSpeed');
+    const minPrecipitation = searchParams.get('minPrecipitation');
+    const maxPrecipitation = searchParams.get('maxPrecipitation');
+    const minSnowfall = searchParams.get('minSnowfall');
+    const maxSnowfall = searchParams.get('maxSnowfall');
+    const minSolarRadiation = searchParams.get('minSolarRadiation');
+    const maxSolarRadiation = searchParams.get('maxSolarRadiation');
 
-    if (!minTemp && !maxTemp && !minMaxTemp && !maxMaxTemp) {
+    if (!minTemp && !maxTemp && !minWindSpeed && !maxWindSpeed && !minPrecipitation && !maxPrecipitation && !minSnowfall && !maxSnowfall && !minSolarRadiation && !maxSolarRadiation) {
       return NextResponse.json(
-        { error: 'At least one temperature parameter is required' },
+        { error: 'At least one parameter is required' },
         { status: 400 }
       );
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Build query for forecasts within date range and temperature range
-  let query = supabase
+    // Build query for forecasts within date range and parameters
+    let query = supabase
       .from('weather_forecasts')
-      .select('grid_index, day_of_year, avg_temperature, max_temperature, min_temperature, precipitation_sum, snowfall_amount, solar_radiation')
+      .select('grid_index, day_of_year, avg_temperature, max_temperature, min_temperature, precipitation_sum, snowfall_amount, solar_radiation, wind_speed_u_max, wind_speed_v_max')
       .gte('day_of_year', startDay)
       .lte('day_of_year', endDay);
 
@@ -38,20 +44,48 @@ export async function GET(request: Request) {
       query = query.lte('avg_temperature', parseFloat(maxTemp));
     }
 
-    if (minMaxTemp) {
-      query = query.gte('max_temperature', parseFloat(minMaxTemp));
+    if (minPrecipitation) {
+      query = query.gte('precipitation_sum', parseFloat(minPrecipitation));
     }
 
-    if (maxMaxTemp) {
-      query = query.lte('max_temperature', parseFloat(maxMaxTemp));
+    if (maxPrecipitation) {
+      query = query.lte('precipitation_sum', parseFloat(maxPrecipitation));
+    }
+
+    if (minSnowfall) {
+      query = query.gte('snowfall_amount', parseFloat(minSnowfall));
+    }
+
+    if (maxSnowfall) {
+      query = query.lte('snowfall_amount', parseFloat(maxSnowfall));
+    }
+
+    if (minSolarRadiation) {
+      query = query.gte('solar_radiation', parseFloat(minSolarRadiation));
+    }
+
+    if (maxSolarRadiation) {
+      query = query.lte('solar_radiation', parseFloat(maxSolarRadiation));
     }
 
     const { data: forecasts, error: forecastError } = await query;
 
     if (forecastError) {
       console.error('Error fetching forecasts:', forecastError);
+      
+      // Handle specific Supabase error codes
+      if (forecastError.code === 'PGRST116') {
+        return NextResponse.json(
+          { error: 'No weather data found for the specified date range' },
+          { status: 404 }
+        );
+      }
+      
       return NextResponse.json(
-        { error: 'Failed to fetch weather data' },
+        { 
+          error: 'Failed to fetch weather data',
+          details: process.env.NODE_ENV === 'development' ? forecastError.message : undefined
+        },
         { status: 500 }
       );
     }
@@ -63,10 +97,24 @@ export async function GET(request: Request) {
       });
     }
 
+    // Filter by wind speed if specified (calculate magnitude from U and V components)
+    let filteredForecasts = forecasts;
+    if (minWindSpeed || maxWindSpeed) {
+      const minWind = minWindSpeed ? parseFloat(minWindSpeed) : 0;
+      const maxWind = maxWindSpeed ? parseFloat(maxWindSpeed) : Infinity;
+      
+      filteredForecasts = forecasts.filter((forecast) => {
+        const windU = forecast.wind_speed_u_max || 0;
+        const windV = forecast.wind_speed_v_max || 0;
+        const windMagnitude = Math.sqrt(windU * windU + windV * windV);
+        return windMagnitude >= minWind && windMagnitude <= maxWind;
+      });
+    }
+
     // Group by grid_index and get unique locations
-    const gridIndexMap = new Map<number, { avgTemp: number; maxTemp?: number; minTemp?: number; precip?: number; snowfall?: number; solar?: number; day: number }>();
+    const gridIndexMap = new Map<number, { avgTemp: number; maxTemp?: number; minTemp?: number; precip?: number; snowfall?: number; solar?: number; windU?: number; windV?: number; day: number }>();
     
-    forecasts.forEach((forecast) => {
+    filteredForecasts.forEach((forecast) => {
       if (!gridIndexMap.has(forecast.grid_index)) {
         gridIndexMap.set(forecast.grid_index, {
           avgTemp: forecast.avg_temperature,
@@ -75,6 +123,8 @@ export async function GET(request: Request) {
           precip: forecast.precipitation_sum,
           snowfall: forecast.snowfall_amount,
           solar: forecast.solar_radiation,
+          windU: forecast.wind_speed_u_max,
+          windV: forecast.wind_speed_v_max,
           day: forecast.day_of_year,
         });
       }
@@ -107,6 +157,15 @@ export async function GET(request: Request) {
     // Combine results
     const locations = allGridData.map((grid) => {
       const forecastData = gridIndexMap.get(grid.grid_index);
+      
+      // Calculate wind speed magnitude if wind data is available
+      let windSpeed: number | undefined;
+      if (forecastData?.windU !== undefined && forecastData?.windV !== undefined) {
+        const windU = forecastData.windU;
+        const windV = forecastData.windV;
+        windSpeed = Math.sqrt(windU * windU + windV * windV);
+      }
+      
       return {
         gridIndex: grid.grid_index,
         location: {
@@ -119,6 +178,9 @@ export async function GET(request: Request) {
         precipitationSum: forecastData?.precip,
         snowfallAmount: forecastData?.snowfall,
         solarRadiation: forecastData?.solar,
+        windSpeed: windSpeed,
+        windSpeedU: forecastData?.windU,
+        windSpeedV: forecastData?.windV,
         dayOfYear: forecastData?.day || startDay,
       };
     });
@@ -127,12 +189,31 @@ export async function GET(request: Request) {
       locations,
       count: locations.length,
       dateRange: { startDay, endDay },
-      tempRange: { minAvg: minTemp, maxAvg: maxTemp, minMax: minMaxTemp, maxMax: maxMaxTemp },
+      tempRange: { min: minTemp, max: maxTemp },
+      windRange: { min: minWindSpeed, max: maxWindSpeed },
+      precipitationRange: { min: minPrecipitation, max: maxPrecipitation },
+      snowfallRange: { min: minSnowfall, max: maxSnowfall },
+      solarRadiationRange: { min: minSolarRadiation, max: maxSolarRadiation },
     });
   } catch (error: any) {
     console.error('Error in parameters search:', error);
+    
+    // Handle specific error types
+    if (error.message?.includes('fetch')) {
+      return NextResponse.json(
+        { 
+          error: 'Database connection failed',
+          details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        },
+        { status: 503 }
+      );
+    }
+    
     return NextResponse.json(
-      { error: error.message || 'Internal server error' },
+      { 
+        error: 'Internal server error',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      },
       { status: 500 }
     );
   }

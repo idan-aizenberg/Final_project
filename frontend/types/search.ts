@@ -52,3 +52,18 @@ export interface SaveSearchInput {
   resolution?: "daily" | "weekly" | "monthly";
   forecastType?: "standard" | "probabilistic" | "extreme";
 }
+
+export interface LocationResult {
+  gridIndex: number;
+  location: { lat: number; lon: number };
+  temperature: number;
+  maxTemperature?: number;
+  minTemperature?: number;
+  precipitationSum?: number;
+  snowfallAmount?: number;
+  solarRadiation?: number;
+  windSpeed?: number;
+  windSpeedU?: number;
+  windSpeedV?: number;
+  dayOfYear: number;
+}

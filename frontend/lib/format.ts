@@ -44,3 +44,56 @@ export function formatNumber(value: number, maximumFractionDigits = 1) {
     maximumFractionDigits,
   }).format(value);
 }
+
+/**
+ * Convert a Date to day of year (1-365)
+ * @param date - The date to convert
+ * @returns Day of year (1-365)
+ */
+export function getDayOfYearFromDate(date: Date): number {
+  const start = new Date(date.getFullYear(), 0, 0);
+  const diff = date.getTime() - start.getTime();
+  const oneDay = 1000 * 60 * 60 * 24;
+  return Math.floor(diff / oneDay);
+}
+
+/**
+ * Convert day of year to a Date object
+ * @param dayOfYear - Day of year (1-365)
+ * @param year - Year (defaults to 2025)
+ * @returns Date object
+ */
+export function getDateFromDayOfYear(dayOfYear: number, year: number = 2025): Date {
+  const date = new Date(year, 0);
+  date.setDate(dayOfYear);
+  return date;
+}
+
+/**
+ * Validate a date range for the weather search
+ * @param from - Start date (required)
+ * @param to - End date (optional, defaults to from)
+ * @returns Validation result with error message if invalid
+ */
+export function validateDateRange(
+  from: Date | undefined,
+  to?: Date | undefined
+): { valid: boolean; error?: string } {
+  if (!from) {
+    return { valid: false, error: "Please select a start date" };
+  }
+
+  if (from.getFullYear() !== 2025) {
+    return { valid: false, error: "Date must be in 2025" };
+  }
+
+  if (to && to < from) {
+    return { valid: false, error: "End date must be after start date" };
+  }
+
+  if (to && to.getFullYear() !== 2025) {
+    return { valid: false, error: "End date must be in 2025" };
+  }
+
+  return { valid: true };
+}

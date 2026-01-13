@@ -1,73 +1,268 @@
-# React + TypeScript + Vite
+# WeatherSight - Advanced Weather Data Analysis Platform
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A comprehensive web application for searching, analyzing, and visualizing historical and forecasted weather data. Built as a capstone project for Software Engineering degree at Braude College.
 
-Currently, two official plugins are available:
+## 🌟 Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+### Core Functionality
+- **Location-Based Search**: Search weather data by city name or coordinates with autocomplete suggestions
+- **Parameter-Based Search**: Find locations matching specific weather criteria (temperature, precipitation, wind speed, etc.)
+- **Advanced Search**: Customize queries with multiple parameters and date ranges
+- **Interactive Visualizations**: View temperature trends, precipitation, wind patterns, and solar radiation
+- **Saved Searches**: Save and reuse frequent searches for quick access
+- **Results Workspace**: Manage and review past search results
 
-## React Compiler
+### Weather Parameters
+- Temperature (average, minimum, maximum)
+- Precipitation (rainfall)
+- Snowfall
+- Solar Radiation (J/m²)
+- Wind Speed (magnitude from U/V components)
+- Historical and forecast data for 2025
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### User Experience
+- Responsive design for desktop and mobile
+- Dark/light mode support
+- Real-time autocomplete for location search
+- Interactive charts and maps
+- Tiered access system (Basic, Standard, Professional, Enterprise)
 
-## Expanding the ESLint configuration
+## 🚀 Getting Started
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### Prerequisites
+- Node.js 18.x or higher
+- npm or yarn package manager
+- Supabase account and project
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### Installation
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd Final_project/frontend
+   ```
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Set up environment variables**
+   
+   Create a `.env.local` file in the `frontend` directory:
+   ```env
+   NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+   ```
+
+4. **Set up the database**
+   
+   Run the migrations in your Supabase SQL editor:
+   ```bash
+   # Execute migrations in order:
+   migrations/001_add_subscription_tier.sql
+   migrations/002_add_query_usage.sql
+   migrations/003_saved_searches.sql
+   ```
+
+5. **Seed the database** (if needed)
+   
+   Use the provided seed scripts to populate weather data:
+   ```bash
+   node scripts/seedMaxTemp.js
+   node scripts/seedPrecipitation.js
+   node scripts/seedSolarRadiation.js
+   # ... run other seed scripts as needed
+   ```
+
+6. **Run the development server**
+   ```bash
+   npm run dev
+   ```
+
+7. **Open your browser**
+   
+   Navigate to [http://localhost:3000](http://localhost:3000)
+
+## 📁 Project Structure
+
+```
+frontend/
+├── app/                      # Next.js 14 App Router pages
+│   ├── (admin)/             # Admin routes
+│   ├── (app)/               # Main application routes
+│   │   ├── dashboard/       # User dashboard
+│   │   ├── search/          # Search pages
+│   │   │   ├── page.tsx             # Location search
+│   │   │   ├── parameters/page.tsx  # Parameter-based search
+│   │   │   └── advanced/page.tsx    # Advanced search
+│   │   ├── results/         # Results workspace
+│   │   ├── saved-searches/  # Saved searches management
+│   │   └── alerts/          # Weather alerts
+│   ├── (auth)/              # Authentication pages
+│   ├── (marketing)/         # Marketing/landing pages
+│   ├── api/                 # API routes
+│   │   ├── weather/         # Weather data endpoints
+│   │   ├── saved-searches/  # Saved searches CRUD
+│   │   └── usage/           # Query usage tracking
+│   └── layout.tsx           # Root layout
+├── components/              # React components
+│   ├── auth/                # Authentication components
+│   ├── layout/              # Layout components (header, footer, nav)
+│   ├── shared/              # Shared/reusable components
+│   └── ui/                  # UI primitives (shadcn/ui)
+├── context/                 # React context providers
+│   └── AuthContext.tsx      # Authentication context
+├── hooks/                   # Custom React hooks
+│   ├── useTier.tsx          # Subscription tier logic
+│   └── useThemePersist.ts   # Theme persistence
+├── lib/                     # Utility libraries
+│   ├── api.ts               # API client functions
+│   ├── format.ts            # Formatting utilities
+│   ├── geocoding.ts         # Geocoding service
+│   ├── supabase.ts          # Supabase client
+│   ├── tiers.ts             # Subscription tier definitions
+│   ├── weatherGeoService.ts # Weather data service with KD-tree
+│   ├── resultsStorageService.ts  # Local storage for results
+│   └── savedSearchesService.ts   # Saved searches service
+├── migrations/              # Database migrations
+├── public/                  # Static assets
+├── scripts/                 # Data seeding scripts
+├── styles/                  # Global styles
+└── types/                   # TypeScript type definitions
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## 🗄️ Database Schema
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+### Main Tables
+- **weather_forecasts**: Historical and forecast weather data
+  - Columns: grid_index, day_of_year, avg_temperature, max_temperature, min_temperature, precipitation_sum, snowfall_amount, solar_radiation, wind_speed_u_max, wind_speed_v_max
+  
+- **weather_grid**: Geographic grid points
+  - Columns: grid_index, latitude, longitude
+  
+- **users**: User accounts and subscription information
+  - Columns: id, email, subscription_tier, query_usage_count, last_usage_reset
+  
+- **saved_searches**: User's saved searches
+  - Columns: id, user_id, name, location, lat, lon, day_of_year, created_at
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## 🔧 Key Technologies
+
+### Frontend
+- **Next.js 14**: React framework with App Router
+- **TypeScript**: Type-safe development
+- **Tailwind CSS**: Utility-first CSS framework
+- **shadcn/ui**: High-quality UI components
+- **Recharts**: Data visualization library
+- **date-fns**: Date manipulation library
+- **Lucide React**: Icon library
+
+### Backend/Services
+- **Supabase**: PostgreSQL database, authentication, and storage
+- **KD-Tree**: Spatial indexing for fast nearest-neighbor searches
+- **Geocoding API**: Location search and autocomplete
+
+### Data Processing
+- **Node.js scripts**: For data transformation and seeding
+- **CSV parsing**: Weather data import from CSV files
+
+## 🎯 Key Features Explained
+
+### Location Search with KD-Tree
+The application uses a KD-tree (k-dimensional tree) data structure for efficient spatial queries. When you search for weather at a specific location:
+1. Coordinates are converted to 3D Cartesian space
+2. KD-tree finds the nearest grid point in O(log n) time
+3. Weather data for that grid point is retrieved from the database
+
+### Parameter-Based Search
+Users can search for locations matching specific weather criteria:
+- Set minimum/maximum thresholds for any parameter
+- Specify date ranges
+- System queries all grid points meeting the criteria
+- Results are returned with full weather data
+
+### Subscription Tiers
+The application implements a tiered access system:
+- **Basic**: 5 queries/day, 7-day horizon, 10 saved searches
+- **Standard**: 25 queries/day, 14-day horizon, 25 saved searches
+- **Professional**: 100 queries/day, 30-day horizon, 100 saved searches, PDF exports
+- **Enterprise**: Unlimited queries, 60-day horizon, unlimited searches, alerts
+
+## 🧪 Testing
+
+### Manual Testing Checklist
+- [ ] Location search (single day)
+- [ ] Location search (date range)
+- [ ] Parameter-based search with multiple criteria
+- [ ] Save a search
+- [ ] Load saved search from sidebar
+- [ ] View result from Results Workspace
+- [ ] Toggle between light/dark mode
+- [ ] Test on mobile viewport
+- [ ] Check for console errors
+
+### Running Tests
+```bash
+npm test          # Run unit tests
+npm run test:e2e  # Run end-to-end tests (if configured)
 ```
+
+## 📝 Environment Variables
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL | Yes |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key | Yes |
+
+## 🚀 Deployment
+
+### Vercel (Recommended)
+1. Push code to GitHub
+2. Import project to Vercel
+3. Add environment variables
+4. Deploy
+
+### Build for Production
+```bash
+npm run build
+npm start
+```
+
+## 🤝 Contributing
+
+This is an academic project. For grading purposes only.
+
+## 📄 License
+
+Academic project - Braude College of Engineering, Software Engineering Department
+
+## 👥 Authors
+
+WeatherSight Team - Braude College Final Project 2025
+
+## 📚 Documentation
+
+For more detailed information about the system architecture and design decisions, see:
+- [ARCHITECTURE.md](./ARCHITECTURE.md) - System architecture overview
+- [Project Presentation](../Capstone%20Project%20Phase%20A%2025-2-D-24%20(2).pdf) - Project proposal
+
+## 🐛 Known Issues
+
+- Mock authentication system (not production-ready)
+- Query limits reset at midnight UTC
+- Geocoding rate limits may apply
+
+## 🔮 Future Enhancements
+
+- Real authentication with Supabase Auth
+- Weather alerts and notifications
+- PDF export functionality
+- Mobile app version
+- Real-time weather updates
+- Historical data comparison
+- Machine learning predictions
+
+---
+
+**Note**: This project was developed as a capstone project for academic evaluation and demonstration purposes.

@@ -60,11 +60,41 @@ export async function GET(request: Request) {
       dayOfYear: day,
     });
 
+    // Check if result is empty or null
+    if (!result || (result.forecasts && result.forecasts.length === 0)) {
+      return NextResponse.json(
+        { error: 'No weather data found for this location and date' },
+        { status: 404 }
+      );
+    }
+
     return NextResponse.json(result);
   } catch (error: any) {
     console.error('Error querying weather:', error);
+    
+    // Handle specific error types
+    if (error.code === 'PGRST116') {
+      return NextResponse.json(
+        { error: 'No weather data found for this location and date' },
+        { status: 404 }
+      );
+    }
+    
+    if (error.message?.includes('fetch') || error.message?.includes('network')) {
+      return NextResponse.json(
+        { 
+          error: 'Database connection failed',
+          details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        },
+        { status: 503 }
+      );
+    }
+    
     return NextResponse.json(
-      { error: error.message || 'Failed to query weather data' },
+      { 
+        error: 'Failed to query weather data',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      },
       { status: 500 }
     );
   }

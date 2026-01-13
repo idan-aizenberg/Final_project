@@ -8,6 +8,7 @@ import { SearchFilters } from "@/components/shared/SearchFilters";
 import type { SearchFormValues } from "@/types/search";
 import { useTier } from "@/hooks/useTier";
 import { toast } from "@/components/ui/use-toast";
+import { saveSearchResult } from "@/lib/resultsStorageService";
 
 export default function AdvancedSearchPage() {
   const router = useRouter();
@@ -66,6 +67,24 @@ export default function AdvancedSearchPage() {
 
       // Increment query usage
       incrementQueryUsage();
+
+      // Auto-save search result
+      try {
+        saveSearchResult({
+          searchType: 'advanced',
+          query: values,
+          summary: {
+            location: values.location || 'Custom Location',
+            dateRange: {
+              start: values.range.start,
+              end: values.range.end,
+            },
+          },
+          resultData: result,
+        });
+      } catch (saveError) {
+        console.error('Failed to save search result:', saveError);
+      }
 
       // Navigate to results page with the result ID
       const params = new URLSearchParams({

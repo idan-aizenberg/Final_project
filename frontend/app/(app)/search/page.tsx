@@ -14,10 +14,12 @@ import { geocodeLocation, searchLocationSuggestions, type LocationSuggestion } f
 import { PageHeader } from "@/components/layout/PageHeader";
 import { format, addDays, differenceInDays } from "date-fns";
 import { cn } from "@/lib/utils";
+import { getDayOfYearFromDate, getDateFromDayOfYear } from "@/lib/format";
 import { useTier } from "@/hooks/useTier";
 import { toast } from "@/components/ui/use-toast";
 import dynamic from "next/dynamic";
 import { fetchSavedSearches, markSearchAsUsed, type SavedSearch } from "@/lib/api";
+import { saveSearchResult, getSearchResultById } from "@/lib/resultsStorageService";
 import { SaveSearchDialog } from "@/components/shared/SaveSearchDialog";
 import { SavedSearchesList } from "@/components/shared/SavedSearchesList";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
@@ -58,24 +60,21 @@ function getCurrentDayOfYear(): number {
   return Math.floor(diff / oneDay);
 }
 
-function getDayOfYearFromDate(date: Date): number {
-  const start = new Date(date.getFullYear(), 0, 0);
-  const diff = date.getTime() - start.getTime();
-  const oneDay = 1000 * 60 * 60 * 24;
-  return Math.floor(diff / oneDay);
-}
-
-function getDateFromDayOfYear(dayOfYear: number, year: number = 2025): Date {
-  const date = new Date(year, 0);
-  date.setDate(dayOfYear);
-  return date;
-}
-
+/**
+ * Format day of year (1-365) as a readable date string
+ * @param dayOfYear - Day of year (1-365)
+ * @returns Formatted date string (e.g., "Jan 15")
+ */
 function getDayOfYearDate(dayOfYear: number): string {
   const date = new Date(2025, 0, dayOfYear);
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+/**
+ * Convert wind direction in degrees to compass direction label
+ * @param degrees - Wind direction in degrees (0-360)
+ * @returns Compass direction label (e.g., "N", "NE", "SW")
+ */
 function getWindDirectionLabel(degrees: number): string {
   const directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
   const index = Math.round(degrees / 22.5) % 16;
@@ -197,8 +196,10 @@ export default function SearchPage() {
   const [location, setLocation] = useState("");
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
   const [dayOfYear, setDayOfYear] = useState(getCurrentDayOfYear());
-  const [selectedDate, setSelectedDate] = useState<Date>(getDateFromDayOfYear(getCurrentDayOfYear()));
-  const [endDate, setEndDate] = useState<Date>(getDateFromDayOfYear(getCurrentDayOfYear()));
+  const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({
+    from: undefined,
+    to: undefined,
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [multiDayData, setMultiDayData] = useState<any[]>([]); // Store multi-day forecast results
@@ -244,6 +245,87 @@ export default function SearchPage() {
     loadSavedSearches();
   }, [loadSavedSearches]);
 
+  // Restore search from Results Workspace or Saved Searches
+  useEffect(() => {
+    const restoreSearch = async () => {
+      const searchParams = new URLSearchParams(window.location.search);
+      const restoreId = searchParams.get('restoreId');
+      const locationParam = searchParams.get('location');
+      const latParam = searchParams.get('lat');
+      const lonParam = searchParams.get('lon');
+      const dayParam = searchParams.get('day');
+      
+      // Handle Results Workspace restore
+      if (restoreId) {
+        const result = getSearchResultById(restoreId);
+        if (result && result.query) {
+          // Populate form fields
+          setLocation(result.query.location || '');
+          
+          // Restore date range
+          let restoredDateRange: { from: Date; to?: Date } | undefined;
+          if (result.query.date) {
+            const date = new Date(result.query.date);
+            restoredDateRange = { from: date, to: date };
+          } else if (result.query.startDate && result.query.endDate) {
+            restoredDateRange = { 
+              from: new Date(result.query.startDate), 
+              to: new Date(result.query.endDate) 
+            };
+          }
+          
+          // Set date range state
+          if (restoredDateRange) {
+            setDateRange(restoredDateRange);
+          }
+          
+          // Execute search with stored coordinates and explicit date range
+          // Pass dateRange directly to avoid race conditions
+          if (result.query.lat && result.query.lon && restoredDateRange) {
+            await executeSearch(
+              result.query.lat, 
+              result.query.lon, 
+              result.query.location, 
+              result.query.displayName || result.query.location,
+              restoredDateRange
+            );
+          }
+          
+          // Clean URL after successful restore
+          window.history.replaceState({}, '', '/search');
+        }
+      }
+      // Handle Saved Searches restore (traditional query params)
+      else if (locationParam && latParam && lonParam && dayParam) {
+        const lat = parseFloat(latParam);
+        const lon = parseFloat(lonParam);
+        const day = parseInt(dayParam);
+        
+        // Validate parsed values
+        if (isNaN(lat) || isNaN(lon) || isNaN(day)) {
+          return;
+        }
+        
+        // Populate location
+        setLocation(locationParam);
+        
+        // Convert day of year to date
+        const date = getDateFromDayOfYear(day);
+        const restoredDateRange = { from: date, to: date };
+        setDateRange(restoredDateRange);
+        setDayOfYear(day);
+        
+        // Execute search with coordinates and explicit date range
+        await executeSearch(lat, lon, locationParam, locationParam, restoredDateRange);
+        
+        // Clean URL after successful restore
+        window.history.replaceState({}, '', '/search');
+      }
+    };
+    
+    restoreSearch();
+  }, []);
+
   // Handle location input change and trigger autocomplete
   const handleLocationChange = (value: string) => {
     setLocation(value);
@@ -269,7 +351,26 @@ export default function SearchPage() {
   };
 
   // Validate and execute search
-  const executeSearch = async (lat: number, lon: number, cityName?: string, displayName?: string) => {
+  const executeSearch = async (
+    lat: number, 
+    lon: number, 
+    cityName?: string, 
+    displayName?: string,
+    overrideDateRange?: { from: Date; to?: Date }
+  ) => {
+    // Use override date range if provided, otherwise use state
+    const effectiveDateRange = overrideDateRange || dateRange;
+    
+    // Check if dates are selected
+    if (!effectiveDateRange.from) {
+      toast({
+        title: "Date required",
+        description: "Please select a date or date range from the calendar",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Check query limit
     if (!canSearch) {
       toast({
@@ -281,6 +382,9 @@ export default function SearchPage() {
     }
 
     // Check horizon limit
+    const selectedDate = effectiveDateRange.from;
+    const endDate = effectiveDateRange.to || effectiveDateRange.from;
+    
     const daysFromNow = differenceInDays(endDate, new Date());
     if (daysFromNow > maxHorizonDays) {
       toast({
@@ -321,6 +425,31 @@ export default function SearchPage() {
           displayName: displayName,
           searchedLocation: { lat, lon },
         });
+        
+        // Auto-save search result
+        try {
+          saveSearchResult({
+            searchType: 'location',
+            query: {
+              location: displayName,
+              lat,
+              lon,
+              dayOfYear,
+              date: format(selectedDate, 'yyyy-MM-dd'),
+            },
+            summary: {
+              location: displayName,
+              dateRange: {
+                start: format(selectedDate, "MMM d, yyyy"),
+                end: format(selectedDate, "MMM d, yyyy"),
+              },
+              avgTemp: data.temperature,
+            },
+            resultData: data,
+          });
+        } catch (saveError) {
+          console.error('Failed to save search result:', saveError);
+        }
         
         toast({
           title: "Forecast loaded",
@@ -377,6 +506,35 @@ export default function SearchPage() {
           });
         }
         
+        // Auto-save multi-day search result
+        try {
+          saveSearchResult({
+            searchType: 'location',
+            query: {
+              location: displayName,
+              lat,
+              lon,
+              startDate: startDateStr,
+              endDate: endDateStr,
+              dayCount,
+            },
+            summary: {
+              location: displayName,
+              dateRange: {
+                start: format(selectedDate, "MMM d, yyyy"),
+                end: format(endDate, "MMM d, yyyy"),
+              },
+              matchCount: dayCount,
+            },
+            resultData: {
+              results: enrichedResults,
+              dayCount,
+            },
+          });
+        } catch (saveError) {
+          console.error('Failed to save search result:', saveError);
+        }
+        
         toast({
           title: "Multi-day forecast loaded",
           description: `Retrieved ${dayCount}-day forecast from ${format(selectedDate, 'MMM d')} to ${format(endDate, 'MMM d')}`,
@@ -400,9 +558,12 @@ export default function SearchPage() {
   const handleLoadSavedSearch = async (search: SavedSearch) => {
     // Update form fields
     setLocation(search.location);
+    
+    // Get date from saved search
+    let searchDate: Date | undefined;
     if (search.dayOfYear) {
-      const date = getDateFromDayOfYear(search.dayOfYear);
-      setSelectedDate(date);
+      searchDate = getDateFromDayOfYear(search.dayOfYear);
+      setDateRange({ from: searchDate, to: searchDate });
       setDayOfYear(search.dayOfYear);
     }
 
@@ -410,15 +571,26 @@ export default function SearchPage() {
     await markSearchAsUsed(search.id);
     await loadSavedSearches();
 
-    // Execute the search
-    await executeSearch(search.lat, search.lon, search.location, search.displayName);
+    // Execute the search with explicit date to bypass async state issues
+    if (searchDate) {
+      await executeSearch(
+        search.lat, 
+        search.lon, 
+        search.location, 
+        search.displayName,
+        { from: searchDate, to: searchDate }
+      );
+    } else {
+      await executeSearch(search.lat, search.lon, search.location, search.displayName);
+    }
   };
 
   // Handle location selection from suggestions
-  const handleLocationSelect = async (suggestion: LocationSuggestion) => {
-    setLocation(suggestion.name);
+  const handleLocationSelect = (suggestion: LocationSuggestion) => {
+    setLocation(suggestion.displayName || suggestion.name);
     setShowSuggestions(false);
-    await executeSearch(suggestion.lat, suggestion.lon, suggestion.name, suggestion.displayName);
+    // Store coordinates for later use when user clicks Search
+    setLastSearchCoords({ lat: suggestion.lat, lon: suggestion.lon });
   };
 
   const handleCitySearch = async () => {
@@ -427,24 +599,56 @@ export default function SearchPage() {
       return;
     }
 
+    if (!dateRange.from) {
+      setError("Please select a date or date range");
+      toast({
+        title: "Date required",
+        description: "Please select a date or date range from the calendar",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setShowSuggestions(false);
 
     try {
-      // Step 1: Geocode city name to coordinates
-      const geocodeResult = await geocodeLocation(location);
-      await executeSearch(geocodeResult.lat, geocodeResult.lon, location, geocodeResult.displayName);
+      // Check if we have stored coordinates from suggestion selection
+      if (lastSearchCoords) {
+        await executeSearch(lastSearchCoords.lat, lastSearchCoords.lon, location, location);
+      } else {
+        // Try to geocode the location
+        const { lat, lon, displayName } = await geocodeLocation(location);
+        await executeSearch(lat, lon, location, displayName);
+      }
     } catch (err: any) {
-      setError(err.message || 'An error occurred');
-      console.error('Search error:', err);
+      setError(err.message || 'Failed to find location');
+      toast({
+        title: "Location not found",
+        description: "Please try a different search term",
+        variant: "destructive",
+      });
     }
   };
 
-  // Handle date change from calendar
-  const handleDateChange = (date: Date | undefined) => {
-    if (date) {
-      // Check if date is within horizon limit
-      const daysFromNow = differenceInDays(date, new Date());
-      if (daysFromNow > maxHorizonDays) {
+  // Handle date range change from calendar
+  const handleDateRangeChange = (range: { from: Date | undefined; to?: Date | undefined } | undefined) => {
+    if (!range?.from) return;
+    
+    // Check if start date is within horizon limit
+    const daysFromNow = differenceInDays(range.from, new Date());
+    if (daysFromNow > maxHorizonDays) {
+      toast({
+        title: "Date beyond horizon",
+        description: `Upgrade to access forecasts beyond ${maxHorizonDays} days.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Check if end date is within horizon limit
+    if (range.to) {
+      const endDaysFromNow = differenceInDays(range.to, new Date());
+      if (endDaysFromNow > maxHorizonDays) {
         toast({
           title: "Date beyond horizon",
           description: `Upgrade to access forecasts beyond ${maxHorizonDays} days.`,
@@ -452,43 +656,11 @@ export default function SearchPage() {
         });
         return;
       }
-      setSelectedDate(date);
-      const newDayOfYear = getDayOfYearFromDate(date);
-      setDayOfYear(newDayOfYear);
-      
-      // If end date is before new start date, update end date to match
-      if (endDate < date) {
-        setEndDate(date);
-      }
     }
-  };
-
-  // Handle end date change from calendar
-  const handleEndDateChange = (date: Date | undefined) => {
-    if (date) {
-      // Check if date is within horizon limit
-      const daysFromNow = differenceInDays(date, new Date());
-      if (daysFromNow > maxHorizonDays) {
-        toast({
-          title: "Date beyond horizon",
-          description: `Upgrade to access forecasts beyond ${maxHorizonDays} days.`,
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      // Check if end date is before start date
-      if (selectedDate && date < selectedDate) {
-        toast({
-          title: "Invalid date range",
-          description: "End date must be on or after start date.",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      setEndDate(date);
-    }
+    
+    setDateRange({ from: range.from, to: range.to || range.from });
+    const newDayOfYear = getDayOfYearFromDate(range.from);
+    setDayOfYear(newDayOfYear);
   };
 
   // Cleanup timeout on unmount
@@ -671,13 +843,14 @@ export default function SearchPage() {
                       <div className="absolute z-[100] w-full mt-1 bg-popover border rounded-md shadow-md max-h-[300px] overflow-y-auto">
                         <div className="p-1">
                           {locationSuggestions.map((suggestion, index) => (
-                            <div
+                            <button
                               key={index}
+                              type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleLocationSelect(suggestion);
                               }}
-                              className="flex items-start gap-2 px-2 py-2 rounded-sm cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors"
+                              className="w-full flex items-start gap-2 px-2 py-2 rounded-sm cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors text-left"
                             >
                               <MapPin className="mt-0.5 h-4 w-4 text-muted-foreground flex-shrink-0" />
                               <div className="flex flex-col min-w-0 flex-1">
@@ -686,7 +859,7 @@ export default function SearchPage() {
                                   {suggestion.displayName}
                                 </span>
                               </div>
-                            </div>
+                            </button>
                           ))}
                         </div>
                       </div>
@@ -701,104 +874,70 @@ export default function SearchPage() {
                   </Button>
                 </div>
 
-                {/* Date Pickers - Start and End Date */}
-                <div className="flex gap-2 items-center">
-                  {/* Start Date */}
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "justify-start text-left font-normal",
-                          !selectedDate && "text-muted-foreground"
-                        )}
-                        disabled={loading}
-                      >
-                        <Calendar className="mr-2 h-4 w-4" />
-                        {selectedDate ? format(selectedDate, "MMM d") : <span>Start</span>}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0 z-[9999]" align="end">
-                      <CalendarComponent
-                        mode="single"
-                        selected={selectedDate}
-                        onSelect={handleDateChange}
-                        defaultMonth={selectedDate}
-                        fromDate={new Date()}
-                        toDate={maxDate}
-                        disabled={(date) => {
-                          const daysFromNow = differenceInDays(date, new Date());
-                          return daysFromNow > maxHorizonDays || daysFromNow < 0;
-                        }}
-                        initialFocus
-                      />
-                      {tier !== "enterprise" && (
-                        <div className="px-4 pb-3 pt-1 border-t">
-                          <p className="text-xs text-muted-foreground">
-                            Dates beyond {maxHorizonDays} days require{" "}
-                            <Link href="/pricing" className="text-primary hover:underline">
-                              plan upgrade
-                            </Link>
-                          </p>
-                        </div>
+                {/* Date Range Picker - Single Calendar */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "justify-start text-left font-normal min-w-[240px]",
+                        !dateRange.from && "text-muted-foreground border-primary/50"
                       )}
-                    </PopoverContent>
-                  </Popover>
-
-                  <span className="text-muted-foreground">→</span>
-
-                  {/* End Date */}
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "justify-start text-left font-normal",
-                          !endDate && "text-muted-foreground"
-                        )}
-                        disabled={loading}
-                      >
-                        <Calendar className="mr-2 h-4 w-4" />
-                        {endDate ? format(endDate, "MMM d") : <span>End</span>}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0 z-[9999]" align="end">
-                      <CalendarComponent
-                        mode="single"
-                        selected={endDate}
-                        onSelect={handleEndDateChange}
-                        defaultMonth={endDate}
-                        fromDate={selectedDate || new Date()}
-                        toDate={maxDate}
-                        disabled={(date) => {
-                          const daysFromNow = differenceInDays(date, new Date());
-                          const daysFromStart = selectedDate ? differenceInDays(date, selectedDate) : 0;
-                          return daysFromNow > maxHorizonDays || daysFromNow < 0 || daysFromStart < 0;
-                        }}
-                        initialFocus
-                      />
-                      {tier !== "enterprise" && (
-                        <div className="px-4 pb-3 pt-1 border-t">
-                          <p className="text-xs text-muted-foreground">
-                            Dates beyond {maxHorizonDays} days require{" "}
-                            <Link href="/pricing" className="text-primary hover:underline">
-                              plan upgrade
-                            </Link>
-                          </p>
-                        </div>
+                      disabled={loading}
+                    >
+                      <Calendar className="mr-2 h-4 w-4" />
+                      {dateRange.from ? (
+                        dateRange.to && dateRange.to.getTime() !== dateRange.from.getTime() ? (
+                          <>
+                            {format(dateRange.from, "MMM d")} - {format(dateRange.to, "MMM d")}
+                          </>
+                        ) : (
+                          format(dateRange.from, "MMM d, yyyy")
+                        )
+                      ) : (
+                        <span>Pick a date</span>
                       )}
-                    </PopoverContent>
-                  </Popover>
-                </div>
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0 z-[9999]" align="end">
+                    <CalendarComponent
+                      mode="range"
+                      selected={dateRange.from ? dateRange : undefined}
+                      onSelect={handleDateRangeChange}
+                      defaultMonth={new Date()}
+                      fromDate={new Date()}
+                      toDate={maxDate}
+                      disabled={(date) => {
+                        const daysFromNow = differenceInDays(date, new Date());
+                        return daysFromNow > maxHorizonDays || daysFromNow < 0;
+                      }}
+                      numberOfMonths={2}
+                      initialFocus
+                    />
+                    <div className="px-4 pb-3 pt-2 border-t bg-muted/30">
+                      <p className="text-xs text-muted-foreground mb-2">
+                        💡 Click a date for single day, or click and drag to select a range
+                      </p>
+                      {tier !== "enterprise" && (
+                        <p className="text-xs text-muted-foreground">
+                          Dates beyond {maxHorizonDays} days require{" "}
+                          <Link href="/pricing" className="text-primary hover:underline">
+                            plan upgrade
+                          </Link>
+                        </p>
+                      )}
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </div>
               {/* Date Range Helper Text */}
-              {selectedDate && endDate && (
+              {dateRange.from && dateRange.to && (
                 <div className="text-sm text-muted-foreground mt-2">
-                  {selectedDate.getTime() === endDate.getTime() ? (
-                    <span>Single-day query: {format(selectedDate, "MMM d, yyyy")}</span>
+                  {dateRange.from.getTime() === dateRange.to.getTime() ? (
+                    <span>Single-day query: {format(dateRange.from, "MMM d, yyyy")}</span>
                   ) : (
                     <span>
-                      {differenceInDays(endDate, selectedDate) + 1}-day range: {format(selectedDate, "MMM d")} → {format(endDate, "MMM d, yyyy")}
+                      {differenceInDays(dateRange.to, dateRange.from) + 1}-day range: {format(dateRange.from, "MMM d")} → {format(dateRange.to, "MMM d, yyyy")}
                     </span>
                   )}
                 </div>
@@ -879,7 +1018,7 @@ export default function SearchPage() {
                     )}
 
                     {/* Tabs for different visualization types */}
-                    <Tabs defaultValue="trends" className="w-full">
+                    <Tabs defaultValue="trends" className="w-full space-y-4">
                       <TabsList className="grid w-full grid-cols-4">
                         <TabsTrigger value="trends" className="flex items-center gap-1">
                           <TrendingUp className="h-4 w-4" />

@@ -112,8 +112,30 @@ export async function GET(request: Request) {
     });
   } catch (error: any) {
     console.error('Error querying weather forecast:', error);
+    
+    // Handle specific error types
+    if (error.code === 'PGRST116') {
+      return NextResponse.json(
+        { error: 'No weather data found for this location and date range' },
+        { status: 404 }
+      );
+    }
+    
+    if (error.message?.includes('fetch') || error.message?.includes('network')) {
+      return NextResponse.json(
+        { 
+          error: 'Database connection failed',
+          details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        },
+        { status: 503 }
+      );
+    }
+    
     return NextResponse.json(
-      { error: error.message || 'Failed to query weather forecast' },
+      { 
+        error: 'Failed to query weather forecast',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      },
       { status: 500 }
     );
   }

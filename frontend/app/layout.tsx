@@ -10,10 +10,12 @@ const jetBrains = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" }
 
 export const metadata: Metadata = {
   title: {
-    default: "WeatherSight",
+    default: "WeatherSight - Advanced Weather Data Analysis",
     template: "%s | WeatherSight",
   },
-  description: "Probabilistic weather intelligence for climate-conscious operations.",
+  description: "Search and analyze historical and forecasted weather data with advanced filtering, parameter-based search, and visualizations. A comprehensive weather intelligence platform for academic research.",
+  keywords: ["weather", "forecast", "climate", "weather data", "temperature", "precipitation", "solar radiation", "wind speed"],
+  authors: [{ name: "WeatherSight Team" }],
   icons: [{ url: "/favicon.ico" }],
 };
 
