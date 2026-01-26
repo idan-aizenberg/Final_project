@@ -49,40 +49,25 @@ A comprehensive web application for searching, analyzing, and visualizing histor
 
 3. **Set up environment variables**
    
-   Create a `.env.local` file in the `frontend` directory:
-   ```env
-   NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-   ```
-
-4. **Set up the database**
-   
-   Run the migrations in your Supabase SQL editor:
+   Copy the example environment file:
    ```bash
-   # Execute migrations in order:
-   migrations/001_add_subscription_tier.sql
-   migrations/002_add_query_usage.sql
-   migrations/003_saved_searches.sql
+   cp .env.example .env.local
    ```
-
-5. **Seed the database** (if needed)
    
-   Use the provided seed scripts to populate weather data:
-   ```bash
-   node scripts/seedMaxTemp.js
-   node scripts/seedPrecipitation.js
-   node scripts/seedSolarRadiation.js
-   # ... run other seed scripts as needed
-   ```
+   That's it! The `.env.example` file already contains the working Supabase credentials for the WeatherSight database. All users can use the same database for searching weather data.
+   
+   > **Note**: These are read-only credentials safe for public use. They allow anyone to query the weather database but don't provide admin access.
 
-6. **Run the development server**
+4. **Run the development server**
    ```bash
    npm run dev
    ```
 
-7. **Open your browser**
+5. **Open your browser**
    
    Navigate to [http://localhost:3000](http://localhost:3000)
+
+> **💡 Quick Start Tip**: The database is already populated with 12,974 grid points and weather data for 2025. You can start searching immediately—no database setup required!
 
 ## 📁 Project Structure
 
