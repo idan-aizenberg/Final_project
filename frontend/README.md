@@ -195,10 +195,13 @@ npm run test:e2e  # Run end-to-end tests (if configured)
 
 ## 📝 Environment Variables
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL | Yes |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key | Yes |
+| Variable | Description | Required | Safe to Publish? |
+|----------|-------------|----------|-----------------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL | Yes | ✅ Yes |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key (read-only) | Yes | ✅ Yes |
+| `SUPABASE_SERVICE_ROLE_KEY` | Admin key (NOT in repo) | Only for seeding | ❌ NEVER |
+
+> **🔒 Security Note**: The anon key in `.env.example` is safe to publish because the database has Row Level Security (RLS) policies that make weather data **read-only**. See [SECURITY.md](./SECURITY.md) for details.
 
 ## 🚀 Deployment
 
