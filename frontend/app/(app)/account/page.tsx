@@ -311,9 +311,9 @@ export default function AccountPage() {
           </CardHeader>
           <CardContent>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <div className={`rounded-2xl border p-4 ${tierDefinition.gating.probabilistic ? 'border-green-500/30 bg-green-500/5' : 'border-border/60 bg-muted/30'}`}>
+              <div className={`rounded-2xl border p-4 ${tierDefinition.gating.probabilisticBasic ? 'border-green-500/30 bg-green-500/5' : 'border-border/60 bg-muted/30'}`}>
                 <div className="flex items-center gap-2 mb-2">
-                  {tierDefinition.gating.probabilistic ? (
+                  {tierDefinition.gating.probabilisticBasic ? (
                     <Check className="h-5 w-5 text-green-500" />
                   ) : (
                     <span className="h-5 w-5 text-muted-foreground">✕</span>
@@ -321,13 +321,13 @@ export default function AccountPage() {
                   <span className="font-medium">Probabilistic Insights</span>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {tierDefinition.gating.probabilistic ? 'Available' : 'Requires Standard+'}
+                  {tierDefinition.gating.probabilisticBasic ? 'Available' : 'Requires Standard+'}
                 </p>
               </div>
               
-              <div className={`rounded-2xl border p-4 ${tierDefinition.gating.extremeEvents ? 'border-green-500/30 bg-green-500/5' : 'border-border/60 bg-muted/30'}`}>
+              <div className={`rounded-2xl border p-4 ${tierDefinition.gating.extremeEventsModerate ? 'border-green-500/30 bg-green-500/5' : 'border-border/60 bg-muted/30'}`}>
                 <div className="flex items-center gap-2 mb-2">
-                  {tierDefinition.gating.extremeEvents ? (
+                  {tierDefinition.gating.extremeEventsModerate ? (
                     <Check className="h-5 w-5 text-green-500" />
                   ) : (
                     <span className="h-5 w-5 text-muted-foreground">✕</span>
@@ -335,7 +335,7 @@ export default function AccountPage() {
                   <span className="font-medium">Extreme Events</span>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {tierDefinition.gating.extremeEvents ? 'Available' : 'Requires Professional+'}
+                  {tierDefinition.gating.extremeEventsModerate ? 'Available' : 'Requires Professional+'}
                 </p>
               </div>
               
