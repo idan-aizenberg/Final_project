@@ -65,8 +65,8 @@ export async function GET(request: NextRequest) {
       nextReset: tomorrow.toISOString(),
       horizonDays: tierDef.horizonDays,
       features: {
-        probabilistic: tierDef.gating.probabilistic,
-        extremeEvents: tierDef.gating.extremeEvents,
+        probabilistic: tierDef.gating.probabilisticBasic,
+        extremeEvents: tierDef.gating.extremeEventsModerate,
         exports: tierDef.gating.exports,
         alerts: tierDef.gating.alerts,
         maxLocations: tierDef.gating.maxLocations,

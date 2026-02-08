@@ -21,11 +21,11 @@ const featureMatrix = [
   },
   { 
     label: "Probabilistic insights", 
-    render: (tier: TierId) => tiers[tier].gating.probabilistic 
+    render: (tier: TierId) => tiers[tier].gating.probabilisticBasic 
   },
   { 
     label: "Extreme event scouting", 
-    render: (tier: TierId) => tiers[tier].gating.extremeEvents 
+    render: (tier: TierId) => tiers[tier].gating.extremeEventsModerate 
   },
   { 
     label: "Exports", 

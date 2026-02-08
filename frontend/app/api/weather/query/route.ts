@@ -61,7 +61,7 @@ export async function GET(request: Request) {
     });
 
     // Check if result is empty or null
-    if (!result || (result.forecasts && result.forecasts.length === 0)) {
+    if (!result) {
       return NextResponse.json(
         { error: 'No weather data found for this location and date' },
         { status: 404 }

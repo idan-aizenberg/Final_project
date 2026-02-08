@@ -351,13 +351,13 @@ function CheckoutContent() {
                       <span className="text-primary mt-0.5">✓</span>
                       <span>{selectedTier.horizonDays}-day forecast horizon</span>
                     </li>
-                    {selectedTier.gating.probabilistic && (
+                    {selectedTier.gating.probabilisticBasic && (
                       <li className="text-xs text-muted-foreground flex items-start gap-2">
                         <span className="text-primary mt-0.5">✓</span>
                         <span>Probabilistic insights</span>
                       </li>
                     )}
-                    {selectedTier.gating.extremeEvents && (
+                    {selectedTier.gating.extremeEventsModerate && (
                       <li className="text-xs text-muted-foreground flex items-start gap-2">
                         <span className="text-primary mt-0.5">✓</span>
                         <span>Extreme event scouting</span>

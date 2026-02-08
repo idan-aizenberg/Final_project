@@ -597,7 +597,7 @@ export default function ParametersSearchPage() {
                       <PopoverContent className="w-auto p-0 z-[9999]" align="start">
                         <CalendarComponent
                       mode="range"
-                      selected={dateRange.from ? dateRange : undefined}
+                      selected={dateRange.from && dateRange.to ? { from: dateRange.from, to: dateRange.to } : undefined}
                       onSelect={(range) => {
                         if (range?.from) {
                           setDateRange({ from: range.from, to: range.to || range.from });

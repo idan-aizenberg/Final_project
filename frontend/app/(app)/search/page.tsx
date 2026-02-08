@@ -912,7 +912,7 @@ export default function SearchPage() {
                     <PopoverContent className="w-auto p-0 z-[9999]" align="end">
                       <CalendarComponent
                       mode="range"
-                      selected={dateRange.from ? dateRange : undefined}
+                      selected={dateRange.from && dateRange.to ? { from: dateRange.from, to: dateRange.to } : undefined}
                       onSelect={handleDateRangeChange}
                       defaultMonth={new Date()}
                         fromDate={new Date()}

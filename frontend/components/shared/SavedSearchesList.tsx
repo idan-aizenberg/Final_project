@@ -246,10 +246,10 @@ export function SavedSearchesList({
                     </div>
                   )}
                   <div className="flex items-center gap-2 mt-2">
-                    <Badge variant="secondary" className="text-[10px]">
+                    <Badge variant="outline" className="text-[10px]">
                       {search.resolution}
                     </Badge>
-                    <Badge variant="secondary" className="text-[10px]">
+                    <Badge variant="outline" className="text-[10px]">
                       {search.forecastType}
                     </Badge>
                     <span className="text-[10px] text-muted-foreground ml-auto">

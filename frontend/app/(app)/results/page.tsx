@@ -353,7 +353,7 @@ export default function ResultsWorkspacePage() {
                       {result.summary.params && result.summary.params.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-2">
                           {result.summary.params.map((param, idx) => (
-                            <Badge key={idx} variant="secondary" className="text-xs">
+                            <Badge key={idx} variant="outline" className="text-xs">
                               {param}
                             </Badge>
                           ))}
