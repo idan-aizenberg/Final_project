@@ -30,7 +30,7 @@ export async function GET(request: Request) {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Build query for forecasts within date range and parameters
-    let query = supabase
+  let query = supabase
       .from('weather_forecasts')
       .select('grid_index, day_of_year, avg_temperature, max_temperature, min_temperature, precipitation_sum, snowfall_amount, solar_radiation, wind_speed_u_max, wind_speed_v_max')
       .gte('day_of_year', startDay)

@@ -56,8 +56,7 @@ A comprehensive web application for searching, analyzing, and visualizing histor
    
    That's it! The `.env.example` file already contains the working Supabase credentials for the WeatherSight database. All users can use the same database for searching weather data.
    
-   > **Note**: These are read-only credentials safe for public use. They allow anyone to query the weather database but don't provide admin access.
-
+   
 4. **Run the development server**
    ```bash
    npm run dev
@@ -174,42 +173,12 @@ The application implements a tiered access system:
 - **Professional**: 100 queries/day, 30-day horizon, 100 saved searches, PDF exports
 - **Enterprise**: Unlimited queries, 60-day horizon, unlimited searches, alerts
 
-## 🧪 Testing
-
-### Manual Testing Checklist
-- [ ] Location search (single day)
-- [ ] Location search (date range)
-- [ ] Parameter-based search with multiple criteria
-- [ ] Save a search
-- [ ] Load saved search from sidebar
-- [ ] View result from Results Workspace
-- [ ] Toggle between light/dark mode
-- [ ] Test on mobile viewport
-- [ ] Check for console errors
 
 ### Running Tests
 ```bash
 npm test          # Run unit tests
 npm run test:e2e  # Run end-to-end tests (if configured)
 ```
-
-## 📝 Environment Variables
-
-| Variable | Description | Required | Safe to Publish? |
-|----------|-------------|----------|-----------------|
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL | Yes | ✅ Yes |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key (read-only) | Yes | ✅ Yes |
-| `SUPABASE_SERVICE_ROLE_KEY` | Admin key (NOT in repo) | Only for seeding | ❌ NEVER |
-
-> **🔒 Security Note**: The anon key in `.env.example` is safe to publish because the database has Row Level Security (RLS) policies that make weather data **read-only**. See [SECURITY.md](./SECURITY.md) for details.
-
-## 🚀 Deployment
-
-### Vercel (Recommended)
-1. Push code to GitHub
-2. Import project to Vercel
-3. Add environment variables
-4. Deploy
 
 ### Build for Production
 ```bash
@@ -235,21 +204,6 @@ For more detailed information about the system architecture and design decisions
 - [ARCHITECTURE.md](./ARCHITECTURE.md) - System architecture overview
 - [Project Presentation](../Capstone%20Project%20Phase%20A%2025-2-D-24%20(2).pdf) - Project proposal
 
-## 🐛 Known Issues
-
-- Mock authentication system (not production-ready)
-- Query limits reset at midnight UTC
-- Geocoding rate limits may apply
-
-## 🔮 Future Enhancements
-
-- Real authentication with Supabase Auth
-- Weather alerts and notifications
-- PDF export functionality
-- Mobile app version
-- Real-time weather updates
-- Historical data comparison
-- Machine learning predictions
 
 ---
 
