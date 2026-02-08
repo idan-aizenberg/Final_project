@@ -132,11 +132,13 @@ export default function SavedSearchesPage() {
   const handleRunSearch = async (search: SavedSearch) => {
     await markSearchAsUsed(search.id);
     // Navigate to search page with the saved search parameters as query params
+    // The fromSaved flag tells the search page not to save this as a new result
     const params = new URLSearchParams({
       location: search.location,
       lat: search.lat.toString(),
       lon: search.lon.toString(),
       day: search.dayOfYear?.toString() || "",
+      fromSaved: "true",
     });
     router.push(`/search?${params.toString()}`);
   };

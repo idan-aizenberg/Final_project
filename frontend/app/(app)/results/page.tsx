@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { 
+import {
   Search, 
   MapPin, 
   Calendar, 
@@ -133,13 +133,14 @@ export default function ResultsWorkspacePage() {
     // Encode result ID to retrieve later
     const searchId = result.id;
     
-    // Navigate based on search type with restore ID
+    // Navigate based on search type with restore ID and restore flag
+    // The restore flag tells the search page not to save this as a new result
     if (result.searchType === 'parameters') {
-      router.push(`/search/parameters?restoreId=${searchId}`);
+      router.push(`/search/parameters?restoreId=${searchId}&restore=true`);
     } else if (result.searchType === 'location') {
-      router.push(`/search?restoreId=${searchId}`);
+      router.push(`/search?restoreId=${searchId}&restore=true`);
     } else {
-      router.push(`/search/advanced?restoreId=${searchId}`);
+      router.push(`/search/advanced?restoreId=${searchId}&restore=true`);
     }
   };
 
@@ -164,10 +165,10 @@ export default function ResultsWorkspacePage() {
         return 'bg-purple-500/10 text-purple-600 border-purple-500/20';
       default:
         return 'bg-gray-500/10 text-gray-600 border-gray-500/20';
-    }
+  }
   };
 
-  return (
+    return (
     <div className="flex min-h-screen flex-col">
       <PageHeader
         title="Results Workspace"
@@ -189,7 +190,7 @@ export default function ResultsWorkspacePage() {
                       onClick={() => setFilterType('all')}
                     >
                       All
-                    </Button>
+          </Button>
                     <Button
                       variant={filterType === 'location' ? 'default' : 'outline'}
                       size="sm"
@@ -197,39 +198,39 @@ export default function ResultsWorkspacePage() {
                     >
                       <MapPin className="h-3.5 w-3.5 mr-1" />
                       Location
-                    </Button>
-                    <Button
+          </Button>
+            <Button
                       variant={filterType === 'parameters' ? 'default' : 'outline'}
-                      size="sm"
+              size="sm"
                       onClick={() => setFilterType('parameters')}
-                    >
+            >
                       <Filter className="h-3.5 w-3.5 mr-1" />
                       Parameters
-                    </Button>
-                    <Button
+            </Button>
+            <Button
                       variant={filterType === 'advanced' ? 'default' : 'outline'}
-                      size="sm"
+              size="sm"
                       onClick={() => setFilterType('advanced')}
-                    >
+            >
                       <Thermometer className="h-3.5 w-3.5 mr-1" />
                       Advanced
-                    </Button>
+            </Button>
                   </div>
 
                   <div className="flex gap-2">
-                    <Button
+              <Button 
                       variant="outline"
-                      size="sm"
+                size="sm" 
                       onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
                     >
                       {viewMode === 'grid' ? (
                         <List className="h-4 w-4" />
-                      ) : (
+              ) : (
                         <Grid3x3 className="h-4 w-4" />
-                      )}
+              )}
                     </Button>
-                  </div>
-                </div>
+      </div>
+    </div>
 
                 {/* Second row: Search and Sort */}
                 <div className="flex flex-col sm:flex-row gap-4">
@@ -241,7 +242,7 @@ export default function ResultsWorkspacePage() {
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="pl-10"
                     />
-                  </div>
+              </div>
 
                   <div className="flex gap-2">
                     <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
@@ -277,8 +278,8 @@ export default function ResultsWorkspacePage() {
                         Clear All
                       </Button>
                     )}
-                  </div>
-                </div>
+              </div>
+              </div>
               </div>
             </CardContent>
           </Card>
@@ -310,7 +311,7 @@ export default function ResultsWorkspacePage() {
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {filteredAndSortedResults.map((result) => (
                 <Card key={result.id} className="rounded-3xl border border-border/60 bg-background/70 hover:border-primary/30 transition-colors">
-                  <CardHeader>
+          <CardHeader>
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
                         <Badge variant="outline" className={`mb-2 ${getSearchTypeColor(result.searchType)}`}>
@@ -325,7 +326,7 @@ export default function ResultsWorkspacePage() {
                         </CardDescription>
                       </div>
                     </div>
-                  </CardHeader>
+          </CardHeader>
                   <CardContent className="space-y-3">
                     <div className="space-y-2">
                       <div className="flex items-center gap-2 text-sm">
@@ -370,13 +371,13 @@ export default function ResultsWorkspacePage() {
                         <Eye className="h-3.5 w-3.5 mr-1" />
                         View
                       </Button>
-                      <Button
+                <Button
                         variant="destructive"
-                        size="sm"
+                  size="sm"
                         onClick={() => setDeleteId(result.id)}
-                      >
+                >
                         <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+                </Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -397,8 +398,8 @@ export default function ResultsWorkspacePage() {
                             <h3 className="font-semibold text-sm truncate">
                               {result.summary.location || 'Custom Search'}
                             </h3>
-                          </div>
-                          
+          </div>
+
                           <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
                             <span className="flex items-center gap-1">
                               <Clock className="h-3 w-3" />
@@ -414,8 +415,8 @@ export default function ResultsWorkspacePage() {
                                 {result.summary.matchCount} locations
                               </span>
                             )}
-                          </div>
-                        </div>
+                  </div>
+                  </div>
 
                         <div className="flex gap-2">
                           <Button
@@ -433,16 +434,16 @@ export default function ResultsWorkspacePage() {
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
-                        </div>
-                      </div>
-                    </div>
+                  </div>
+                  </div>
+                </div>
                   ))}
                 </div>
               </CardContent>
             </Card>
           )}
         </div>
-      </div>
+              </div>
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteId !== null} onOpenChange={(open) => !open && setDeleteId(null)}>
@@ -482,7 +483,7 @@ export default function ResultsWorkspacePage() {
             </Button>
             <Button variant="destructive" onClick={handleClearAll}>
               Clear All
-            </Button>
+              </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

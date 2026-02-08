@@ -358,6 +358,12 @@ export default function SearchPage() {
     displayName?: string,
     overrideDateRange?: { from: Date; to?: Date }
   ) => {
+    // Check if this is a restore/view operation (don't save duplicates)
+    const searchParams = new URLSearchParams(window.location.search);
+    const isRestore = searchParams.get('restore') === 'true';
+    const isFromSaved = searchParams.get('fromSaved') === 'true';
+    const shouldSave = !isRestore && !isFromSaved;
+    
     // Use override date range if provided, otherwise use state
     const effectiveDateRange = overrideDateRange || dateRange;
     
@@ -426,29 +432,31 @@ export default function SearchPage() {
           searchedLocation: { lat, lon },
         });
         
-        // Auto-save search result
-        try {
-          saveSearchResult({
-            searchType: 'location',
-            query: {
-              location: displayName,
-              lat,
-              lon,
-              dayOfYear,
-              date: format(selectedDate, 'yyyy-MM-dd'),
-            },
-            summary: {
-              location: displayName,
-              dateRange: {
-                start: format(selectedDate, "MMM d, yyyy"),
-                end: format(selectedDate, "MMM d, yyyy"),
+        // Auto-save search result (only for new searches, not restores or saved search runs)
+        if (shouldSave) {
+          try {
+            saveSearchResult({
+              searchType: 'location',
+              query: {
+                location: displayName,
+                lat,
+                lon,
+                dayOfYear,
+                date: format(selectedDate, 'yyyy-MM-dd'),
               },
-              avgTemp: data.temperature,
-            },
-            resultData: data,
-          });
-        } catch (saveError) {
-          console.error('Failed to save search result:', saveError);
+              summary: {
+                location: displayName,
+                dateRange: {
+                  start: format(selectedDate, "MMM d, yyyy"),
+                  end: format(selectedDate, "MMM d, yyyy"),
+                },
+                avgTemp: data.temperature,
+              },
+              resultData: data,
+            });
+          } catch (saveError) {
+            console.error('Failed to save search result:', saveError);
+          }
         }
         
         toast({
@@ -506,33 +514,35 @@ export default function SearchPage() {
           });
         }
         
-        // Auto-save multi-day search result
-        try {
-          saveSearchResult({
-            searchType: 'location',
-            query: {
-              location: displayName,
-              lat,
-              lon,
-              startDate: startDateStr,
-              endDate: endDateStr,
-              dayCount,
-            },
-            summary: {
-              location: displayName,
-              dateRange: {
-                start: format(selectedDate, "MMM d, yyyy"),
-                end: format(endDate, "MMM d, yyyy"),
+        // Auto-save multi-day search result (only for new searches, not restores or saved search runs)
+        if (shouldSave) {
+          try {
+            saveSearchResult({
+              searchType: 'location',
+              query: {
+                location: displayName,
+                lat,
+                lon,
+                startDate: startDateStr,
+                endDate: endDateStr,
+                dayCount,
               },
-              matchCount: dayCount,
-            },
-            resultData: {
-              results: enrichedResults,
-              dayCount,
-            },
-          });
-        } catch (saveError) {
-          console.error('Failed to save search result:', saveError);
+              summary: {
+                location: displayName,
+                dateRange: {
+                  start: format(selectedDate, "MMM d, yyyy"),
+                  end: format(endDate, "MMM d, yyyy"),
+                },
+                matchCount: dayCount,
+              },
+              resultData: {
+                results: enrichedResults,
+                dayCount,
+              },
+            });
+          } catch (saveError) {
+            console.error('Failed to save search result:', saveError);
+          }
         }
         
         toast({
@@ -581,7 +591,7 @@ export default function SearchPage() {
         { from: searchDate, to: searchDate }
       );
     } else {
-      await executeSearch(search.lat, search.lon, search.location, search.displayName);
+    await executeSearch(search.lat, search.lon, search.location, search.displayName);
     }
   };
 
@@ -622,29 +632,29 @@ export default function SearchPage() {
       }
     } catch (err: any) {
       setError(err.message || 'Failed to find location');
-      toast({
+        toast({
         title: "Location not found",
         description: "Please try a different search term",
-        variant: "destructive",
-      });
+          variant: "destructive",
+        });
     }
   };
-
+      
   // Handle date range change from calendar
   const handleDateRangeChange = (range: { from: Date | undefined; to?: Date | undefined } | undefined) => {
     if (!range?.from) return;
     
     // Check if start date is within horizon limit
     const daysFromNow = differenceInDays(range.from, new Date());
-    if (daysFromNow > maxHorizonDays) {
-      toast({
-        title: "Date beyond horizon",
-        description: `Upgrade to access forecasts beyond ${maxHorizonDays} days.`,
-        variant: "destructive",
-      });
-      return;
-    }
-    
+      if (daysFromNow > maxHorizonDays) {
+        toast({
+          title: "Date beyond horizon",
+          description: `Upgrade to access forecasts beyond ${maxHorizonDays} days.`,
+          variant: "destructive",
+        });
+        return;
+      }
+      
     // Check if end date is within horizon limit
     if (range.to) {
       const endDaysFromNow = differenceInDays(range.to, new Date());
@@ -875,17 +885,17 @@ export default function SearchPage() {
                 </div>
 
                 {/* Date Range Picker - Single Calendar */}
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
                         "justify-start text-left font-normal min-w-[240px]",
                         !dateRange.from && "text-muted-foreground border-primary/50"
-                      )}
-                      disabled={loading}
-                    >
-                      <Calendar className="mr-2 h-4 w-4" />
+                        )}
+                        disabled={loading}
+                      >
+                        <Calendar className="mr-2 h-4 w-4" />
                       {dateRange.from ? (
                         dateRange.to && dateRange.to.getTime() !== dateRange.from.getTime() ? (
                           <>
@@ -897,38 +907,38 @@ export default function SearchPage() {
                       ) : (
                         <span>Pick a date</span>
                       )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0 z-[9999]" align="end">
-                    <CalendarComponent
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 z-[9999]" align="end">
+                      <CalendarComponent
                       mode="range"
                       selected={dateRange.from ? dateRange : undefined}
                       onSelect={handleDateRangeChange}
                       defaultMonth={new Date()}
-                      fromDate={new Date()}
-                      toDate={maxDate}
-                      disabled={(date) => {
-                        const daysFromNow = differenceInDays(date, new Date());
-                        return daysFromNow > maxHorizonDays || daysFromNow < 0;
-                      }}
+                        fromDate={new Date()}
+                        toDate={maxDate}
+                        disabled={(date) => {
+                          const daysFromNow = differenceInDays(date, new Date());
+                          return daysFromNow > maxHorizonDays || daysFromNow < 0;
+                        }}
                       numberOfMonths={2}
-                      initialFocus
-                    />
+                        initialFocus
+                      />
                     <div className="px-4 pb-3 pt-2 border-t bg-muted/30">
                       <p className="text-xs text-muted-foreground mb-2">
                         💡 Click a date for single day, or click and drag to select a range
                       </p>
                       {tier !== "enterprise" && (
-                        <p className="text-xs text-muted-foreground">
-                          Dates beyond {maxHorizonDays} days require{" "}
-                          <Link href="/pricing" className="text-primary hover:underline">
-                            plan upgrade
-                          </Link>
-                        </p>
+                          <p className="text-xs text-muted-foreground">
+                            Dates beyond {maxHorizonDays} days require{" "}
+                            <Link href="/pricing" className="text-primary hover:underline">
+                              plan upgrade
+                            </Link>
+                          </p>
                       )}
                     </div>
-                  </PopoverContent>
-                </Popover>
+                    </PopoverContent>
+                  </Popover>
               </div>
               {/* Date Range Helper Text */}
               {dateRange.from && dateRange.to && (

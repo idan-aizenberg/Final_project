@@ -254,6 +254,12 @@ export default function ParametersSearchPage() {
   };
 
   const handleSearch = async () => {
+    // Check if this is a restore/view operation (don't save duplicates)
+    const searchParams = new URLSearchParams(window.location.search);
+    const isRestore = searchParams.get('restore') === 'true';
+    const isFromSaved = searchParams.get('fromSaved') === 'true';
+    const shouldSave = !isRestore && !isFromSaved;
+    
     if (!minTemp && !maxTemp && !minWindSpeed && !maxWindSpeed && !minPrecipitation && !maxPrecipitation && !minSnowfall && !maxSnowfall && !minSolarRadiation && !maxSolarRadiation) {
       setError("Please enter at least one parameter");
       return;
@@ -302,49 +308,55 @@ export default function ParametersSearchPage() {
       // Set selected day to the first day in range for map display
       setSelectedDay(startDay);
 
-      // Auto-save search result
-      try {
-        const params: string[] = [];
-        if (minTemp) params.push(`Min Avg: ${minTemp}°C`);
-        if (maxTemp) params.push(`Max Avg: ${maxTemp}°C`);
-        if (minMaxTemp) params.push(`Min Max: ${minMaxTemp}°C`);
-        if (maxMaxTemp) params.push(`Max Max: ${maxMaxTemp}°C`);
-        if (minMinTemp) params.push(`Min Min: ${minMinTemp}°C`);
-        if (maxMinTemp) params.push(`Max Min: ${maxMinTemp}°C`);
-        if (minWindSpeed) params.push(`Min Wind: ${minWindSpeed} m/s`);
-        if (maxWindSpeed) params.push(`Max Wind: ${maxWindSpeed} m/s`);
+      // Auto-save search result (only for new searches, not restores or saved search runs)
+      if (shouldSave) {
+        try {
+          const params: string[] = [];
+          if (minTemp) params.push(`Min Temp: ${minTemp}°C`);
+          if (maxTemp) params.push(`Max Temp: ${maxTemp}°C`);
+          if (minWindSpeed) params.push(`Min Wind: ${minWindSpeed} m/s`);
+          if (maxWindSpeed) params.push(`Max Wind: ${maxWindSpeed} m/s`);
+          if (minPrecipitation) params.push(`Min Precip: ${minPrecipitation} mm`);
+          if (maxPrecipitation) params.push(`Max Precip: ${maxPrecipitation} mm`);
+          if (minSnowfall) params.push(`Min Snow: ${minSnowfall} mm`);
+          if (maxSnowfall) params.push(`Max Snow: ${maxSnowfall} mm`);
+          if (minSolarRadiation) params.push(`Min Solar: ${minSolarRadiation} J/m²`);
+          if (maxSolarRadiation) params.push(`Max Solar: ${maxSolarRadiation} J/m²`);
 
-        saveSearchResult({
-          searchType: 'parameters',
-          query: {
-            minTemp,
-            maxTemp,
-            minMaxTemp,
-            maxMaxTemp,
-            minMinTemp,
-            maxMinTemp,
-            minWindSpeed,
-            maxWindSpeed,
-            startDay,
-            endDay,
-          },
-          summary: {
-            location: `Parameters Search (${data.locations?.length || 0} locations)`,
-            dateRange: {
-              start: format(startDate!, "MMM d, yyyy"),
-              end: format(endDate!, "MMM d, yyyy"),
+          saveSearchResult({
+            searchType: 'parameters',
+            query: {
+              minTemp,
+              maxTemp,
+              minWindSpeed,
+              maxWindSpeed,
+              minPrecipitation,
+              maxPrecipitation,
+              minSnowfall,
+              maxSnowfall,
+              minSolarRadiation,
+              maxSolarRadiation,
+              startDay,
+              endDay,
             },
-            matchCount: data.locations?.length || 0,
-            params,
-          },
-          resultData: {
-            locations: data.locations,
-            count: data.count,
-          },
-        });
-      } catch (saveError) {
-        console.error('Failed to save search result:', saveError);
-        // Don't show error to user, just log it
+            summary: {
+              location: `Parameters Search (${data.locations?.length || 0} locations)`,
+              dateRange: {
+                start: format(startDate!, "MMM d, yyyy"),
+                end: format(endDate!, "MMM d, yyyy"),
+              },
+              matchCount: data.locations?.length || 0,
+              params,
+            },
+            resultData: {
+              locations: data.locations,
+              count: data.count,
+            },
+          });
+        } catch (saveError) {
+          console.error('Failed to save search result:', saveError);
+          // Don't show error to user, just log it
+        }
       }
     } catch (err: any) {
       setError(err.message || 'An error occurred');
@@ -558,17 +570,17 @@ export default function ParametersSearchPage() {
                   <Calendar className="h-4 w-4" />
                   Date Range
                 </Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
                         !dateRange.from && "text-muted-foreground border-primary/50"
-                      )}
-                      disabled={loading}
-                    >
-                      <Calendar className="mr-2 h-4 w-4" />
+                          )}
+                          disabled={loading}
+                        >
+                          <Calendar className="mr-2 h-4 w-4" />
                       {dateRange.from ? (
                         dateRange.to && dateRange.to.getTime() !== dateRange.from.getTime() ? (
                           <>
@@ -580,10 +592,10 @@ export default function ParametersSearchPage() {
                       ) : (
                         <span>Pick a date or range</span>
                       )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0 z-[9999]" align="start">
-                    <CalendarComponent
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0 z-[9999]" align="start">
+                        <CalendarComponent
                       mode="range"
                       selected={dateRange.from ? dateRange : undefined}
                       onSelect={(range) => {
@@ -592,19 +604,19 @@ export default function ParametersSearchPage() {
                         }
                       }}
                       defaultMonth={new Date(2025, 0, 1)}
-                      fromDate={new Date(2025, 0, 1)}
-                      toDate={new Date(2025, 11, 31)}
-                      disabled={(date) => date.getFullYear() !== 2025}
+                          fromDate={new Date(2025, 0, 1)}
+                          toDate={new Date(2025, 11, 31)}
+                          disabled={(date) => date.getFullYear() !== 2025}
                       numberOfMonths={2}
-                      initialFocus
-                    />
+                          initialFocus
+                        />
                     <div className="px-4 pb-3 pt-2 border-t bg-muted/30">
                       <p className="text-xs text-muted-foreground">
                         💡 Click a date for single day, or click and drag to select a range
                       </p>
-                    </div>
-                  </PopoverContent>
-                </Popover>
+                  </div>
+                      </PopoverContent>
+                    </Popover>
               </div>
 
               {/* Search Button */}
